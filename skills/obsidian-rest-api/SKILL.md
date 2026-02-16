@@ -217,3 +217,4 @@ done
 - PATCH without all 3 required headers (Operation, Target-Type, Target) → 400
 - Rapid-fire PUTs without delay → API lockup requiring container restart
 - Spaces in new folder names → PUT hangs forever (use camelCase or hyphens)
+- **Using filesystem read + API write can prepend `file/` to paths** — if vault-manager reads via `cat` and pipes to curl, some approaches add a `file/` prefix to the vault path. Always use literal path strings in the PUT URL, e.g. `$BASE/vault/Resources/OmniResearch/File.md`, never construct paths from filesystem commands
