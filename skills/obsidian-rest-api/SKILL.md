@@ -186,6 +186,27 @@ Two content types:
 - **Directories trail with `/`** in listing responses
 - **LiveSync integration** — writes via this API go through Obsidian properly, triggering LiveSync to all devices
 - **Never write directly to CouchDB or filesystem** — always use this API
+- **Bind address** — plugin defaults to `127.0.0.1`; must be changed to `0.0.0.0` in plugin settings for LAN access (Docker port mapping requires this)
+
+## Known Bugs & Rate Limiting
+
+- **⚠️ Spaces in NEW folder names hang PUT indefinitely** — when creating a new folder via PUT, folder names with spaces (e.g. `Omni%20Skills`) cause the request to hang and never return. Workaround: use names without spaces (e.g. `OmniSkills`), then rename in Obsidian UI if needed.
+- **Rapid-fire writes can lock the API** — sending many PUT requests without delays causes the plugin to stop responding to all write operations (GETs still work). If this happens, restart the Obsidian container. **Always add `sleep 2` between batch writes.**
+- **After API lockup, container restart required** — toggling the plugin may not be enough; a full container restart clears the stuck state.
+
+## Batch Write Pattern
+
+When writing multiple files, use this safe pattern:
+```bash
+for file in list_of_files; do
+  curl -k -s -m 30 -o /dev/null -w "%{http_code}" -X PUT \
+    -H "$AUTH" -H "Content-Type: text/markdown" \
+    --data-binary @"$file" \
+    "$BASE/vault/$target_path"
+  echo " $target_path"
+  sleep 2  # REQUIRED — prevents API lockup
+done
+```
 
 ## Common Mistakes
 
@@ -194,3 +215,5 @@ Two content types:
 - Using GET for search (it's POST)
 - Missing `Content-Type: text/markdown` on PUT/POST → 400
 - PATCH without all 3 required headers (Operation, Target-Type, Target) → 400
+- Rapid-fire PUTs without delay → API lockup requiring container restart
+- Spaces in new folder names → PUT hangs forever (use camelCase or hyphens)
