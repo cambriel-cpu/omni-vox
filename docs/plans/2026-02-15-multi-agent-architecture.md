@@ -10,18 +10,19 @@
 
 ---
 
-### Task 1: Define Agent Configs in openclaw.json
+### Task 1: Define Agent Configs and Enable Subagent Access
 
 **Files:**
 - Modify: `/root/.openclaw/openclaw.json` (via `gateway config.patch`)
 
-**Step 1: Apply the agents.list config patch**
+**Step 1: Apply the complete agents.list config patch**
 
-Use `gateway config.patch` to add agents to the config. Each agent gets:
+Use `gateway config.patch` to add all agents to the config including main agent with subagent permissions. Each specialist agent gets:
 - **researcher** — Haiku, minimal tools (web_search, web_fetch, Read, memory_search, memory_get), no messaging
 - **writer** — Sonnet, coding tools (Read, Write, Edit, exec, memory_search, memory_get), no messaging
 - **monitor** — Haiku, messaging + web tools, heartbeat-enabled for proactive checks
 - **vault-manager** — Haiku, exec only (for curl to Obsidian REST API), no messaging
+- **main** — Opus (default agent), subagents.allowAgents configured to spawn all 4 specialists
 
 Config patch to apply:
 
@@ -30,9 +31,17 @@ Config patch to apply:
   "agents": {
     "list": [
       {
+        "id": "main",
+        "default": true,
+        "model": "anthropic/claude-opus-4-6",
+        "subagents": {
+          "allowAgents": ["researcher", "writer", "monitor", "vault-manager"]
+        }
+      },
+      {
         "id": "researcher",
         "name": "Researcher",
-        "model": "anthropic/claude-haiku-3.5",
+        "model": "anthropic/claude-haiku-4-5-20251001",
         "workspace": "/root/.openclaw/workspace",
         "tools": {
           "profile": "minimal",
@@ -46,7 +55,7 @@ Config patch to apply:
       {
         "id": "writer",
         "name": "Writer",
-        "model": "anthropic/claude-sonnet-4",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
         "workspace": "/root/.openclaw/workspace",
         "tools": {
           "profile": "coding"
@@ -59,7 +68,7 @@ Config patch to apply:
       {
         "id": "monitor",
         "name": "Monitor",
-        "model": "anthropic/claude-haiku-3.5",
+        "model": "anthropic/claude-haiku-4-5-20251001",
         "workspace": "/root/.openclaw/workspace",
         "tools": {
           "profile": "messaging",
@@ -82,7 +91,7 @@ Config patch to apply:
       {
         "id": "vault-manager",
         "name": "Vault Manager",
-        "model": "anthropic/claude-haiku-3.5",
+        "model": "anthropic/claude-haiku-4-5-20251001",
         "workspace": "/root/.openclaw/workspace",
         "tools": {
           "profile": "minimal",
@@ -100,17 +109,22 @@ Config patch to apply:
 
 **Step 2: Verify the config applied**
 
-Run: `gateway config.get` and confirm `agents.list` contains 4 entries with correct ids.
-Expected: Array with researcher, writer, monitor, vault-manager.
+Run: `gateway config.get`
+Expected: JSON response with `agents.list` containing 5 entries (main + 4 specialists) with correct ids and configurations.
 
 **Step 3: Verify agents are spawnable**
 
 Run: `agents_list` tool
-Expected: Should show main + all 4 new agents.
+Expected: Response shows main + researcher + writer + monitor + vault-manager all available.
 
-**Step 4: Commit note**
+**Step 4: No commit needed**
 
-No file change to commit — config lives outside workspace git.
+Note: Config lives outside workspace git repository. No commit step for this task.
+
+**Troubleshooting:**
+- If `gateway config.patch` fails with "invalid JSON": Verify the JSON is valid using `echo '<json>' | jq .`
+- If `agents_list` doesn't show new agents: Restart the gateway service or check gateway logs
+- If main agent's `allowAgents` is missing: Verify the main agent entry in config has `subagents.allowAgents` array
 
 ---
 
@@ -119,9 +133,14 @@ No file change to commit — config lives outside workspace git.
 **Files:**
 - Modify: `/root/.openclaw/workspace/AGENTS.md`
 
-**Step 1: Write the agent role identification sections**
+**Step 1: Read current AGENTS.md to verify location**
 
-Append the following to the end of AGENTS.md (before "Make It Yours"):
+Run: `cat /root/.openclaw/workspace/AGENTS.md | grep -n "Make It Yours"`
+Expected: Line number where "Make It Yours" section appears (or empty if section doesn't exist).
+
+**Step 2: Write the agent role identification sections**
+
+Use the Edit tool to append before the "Make It Yours" section (or at end of file if that section doesn't exist):
 
 ```markdown
 ## Agent Roles
@@ -162,12 +181,12 @@ You are the Obsidian vault specialist. Your job:
 - Read the `obsidian-rest-api` skill for API patterns
 ```
 
-**Step 2: Run a quick read to verify the edit**
+**Step 3: Run a quick read to verify the edit**
 
 Run: `cat /root/.openclaw/workspace/AGENTS.md | tail -50`
-Expected: See the new "Agent Roles" section with all 4 role descriptions.
+Expected: See the new "Agent Roles" section with all 4 role descriptions at the end of the file.
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
 cd /root/.openclaw/workspace
@@ -175,151 +194,37 @@ git add AGENTS.md
 git commit -m "feat: add multi-agent role sections to AGENTS.md"
 ```
 
----
-
-### Task 3: Configure Main Agent Subagent Access
-
-**Files:**
-- Modify: `/root/.openclaw/openclaw.json` (via `gateway config.patch`)
-
-**Step 1: Update main agent defaults to allow spawning all agents**
-
-The main agent needs `subagents.allowAgents` set to spawn the new agents. Apply config patch:
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "subagents": {
-        "maxConcurrent": 8,
-        "allowAgents": ["researcher", "writer", "monitor", "vault-manager"]
-      }
-    }
-  }
-}
-```
-
-Wait — `allowAgents` is on per-agent subagents config, not defaults. Let me check...
-
-Actually, from the schema: `agents.list[].subagents.allowAgents` is the per-agent field. But `agents.defaults.subagents` doesn't have `allowAgents`. So we need to either:
-1. Add a main agent entry to `agents.list` with `subagents.allowAgents`, or
-2. Check if `allowAny` defaults to true when no list is configured.
-
-From `agents_list` response: `"allowAny": false`. So we need to explicitly configure this.
-
-Apply patch adding main to the agents list:
-
-```json
-{
-  "agents": {
-    "list": [
-      {
-        "id": "main",
-        "default": true,
-        "subagents": {
-          "allowAgents": ["researcher", "writer", "monitor", "vault-manager"]
-        }
-      },
-      {
-        "id": "researcher",
-        "name": "Researcher",
-        "model": "anthropic/claude-haiku-3.5",
-        "workspace": "/root/.openclaw/workspace",
-        "tools": {
-          "profile": "minimal",
-          "alsoAllow": ["web_search", "web_fetch", "memory_search", "memory_get"]
-        },
-        "identity": {
-          "name": "Omni (Research)",
-          "emoji": "🔍"
-        }
-      },
-      {
-        "id": "writer",
-        "name": "Writer",
-        "model": "anthropic/claude-sonnet-4",
-        "workspace": "/root/.openclaw/workspace",
-        "tools": {
-          "profile": "coding"
-        },
-        "identity": {
-          "name": "Omni (Writer)",
-          "emoji": "✍️"
-        }
-      },
-      {
-        "id": "monitor",
-        "name": "Monitor",
-        "model": "anthropic/claude-haiku-3.5",
-        "workspace": "/root/.openclaw/workspace",
-        "tools": {
-          "profile": "messaging",
-          "alsoAllow": ["web_search", "web_fetch", "memory_search", "memory_get"]
-        },
-        "heartbeat": {
-          "every": "30m",
-          "activeHours": {
-            "start": "08:00",
-            "end": "23:00",
-            "timezone": "America/New_York"
-          },
-          "prompt": "Check HEARTBEAT.md for monitoring tasks. Run any due checks. Reply HEARTBEAT_OK if nothing needs attention."
-        },
-        "identity": {
-          "name": "Omni (Monitor)",
-          "emoji": "📡"
-        }
-      },
-      {
-        "id": "vault-manager",
-        "name": "Vault Manager",
-        "model": "anthropic/claude-haiku-3.5",
-        "workspace": "/root/.openclaw/workspace",
-        "tools": {
-          "profile": "minimal",
-          "alsoAllow": ["exec"]
-        },
-        "identity": {
-          "name": "Omni (Vault)",
-          "emoji": "📚"
-        }
-      }
-    ]
-  }
-}
-```
-
-Note: Tasks 1 and 3 are merged — apply this combined patch as a single operation in Task 1.
-
-**Step 2: Verify spawnable agents**
-
-Run: `agents_list`
-Expected: main + researcher + writer + monitor + vault-manager all listed.
+**Troubleshooting:**
+- If Edit tool fails with "old_string not found": The file structure may have changed. Read the full file, identify the correct insertion point, and adjust the edit.
+- If commit fails with "nothing to commit": Verify the edit actually modified the file using `git diff AGENTS.md`
 
 ---
 
-### Task 4: Test Each Agent with a Simple Spawn
+### Task 3: Test Each Agent with a Simple Spawn
 
 **Files:** None (validation only)
 
 **Step 1: Test researcher agent**
 
+Run the tool:
 ```
 sessions_spawn(agentId="researcher", task="Search the web for 'OpenClaw multi-agent setup guide' and return a 3-bullet summary with links.")
 ```
 
-Expected: Returns within ~30s with a research summary. Confirms web_search tool works.
+Expected: Returns within ~30s with a research summary and source URLs. Confirms web_search tool works.
 
 **Step 2: Test writer agent**
 
+Run the tool:
 ```
-sessions_spawn(agentId="writer", task="Read /root/.openclaw/workspace/AGENTS.md and report how many H2 headers it contains.")
+sessions_spawn(agentId="writer", task="Read /root/.openclaw/workspace/AGENTS.md and report how many H2 headers (## ) it contains.")
 ```
 
-Expected: Returns with correct count. Confirms Read tool works.
+Expected: Returns with correct count (should be at least 6 after Task 2). Confirms Read tool works.
 
 **Step 3: Test vault-manager agent**
 
+Run the tool:
 ```
 sessions_spawn(agentId="vault-manager", task="Read the file /root/.openclaw/obsidian-rest-api-key, then use curl -k to list all files in the Obsidian vault at https://192.168.68.51:27124. Use the API key as a Bearer token in the Authorization header. Report the first 5 files.")
 ```
@@ -328,29 +233,39 @@ Expected: Returns vault file listing. Confirms exec + API access works.
 
 **Step 4: Test monitor agent**
 
+Run the tool:
 ```
-sessions_spawn(agentId="monitor", task="Read HEARTBEAT.md and report what tasks are configured. If none, say so.")
+sessions_spawn(agentId="monitor", task="Read HEARTBEAT.md and report what tasks are configured. If the file doesn't exist yet or is empty, say so.")
 ```
 
-Expected: Reports HEARTBEAT.md is empty/comments only.
+Expected: Reports HEARTBEAT.md doesn't exist or is empty (will be created in Task 5).
+
+**Step 5: No commit needed**
+
+Note: This task only validates configuration. No files modified.
+
+**Troubleshooting:**
+- If any spawn fails with "agent not found": Verify `agents_list` shows the agent, check spelling of agentId
+- If researcher fails with "web_search tool not available": Check agent config has web_search in alsoAllow array
+- If vault-manager fails with "connection refused": Verify Obsidian REST API is running on the target host
+- If spawns fail with "max concurrent exceeded": Run tests sequentially with delays, or check `agents.defaults.subagents.maxConcurrent` setting
 
 ---
 
-### Task 5: Create Obsidian Project Note
+### Task 4: Create Obsidian Project Note
 
 **Files:**
 - Create: Obsidian vault `Projects/MultiAgentArchitecture/README.md` (via REST API)
 
-**Step 1: Write the project note to the vault**
+**Step 1: Write the project note using vault-manager agent**
 
-Use the vault-manager or direct exec to push via Obsidian REST API:
+Spawn vault-manager to create the project documentation in Obsidian:
 
-```bash
-API_KEY=$(cat /root/.openclaw/obsidian-rest-api-key)
-curl -k -X PUT "https://192.168.68.51:27124/vault/Projects/MultiAgentArchitecture/README.md" \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: text/markdown" \
-  -d '# Multi-Agent Architecture
+```
+sessions_spawn(agentId="vault-manager", task="Create a new file in the Obsidian vault at path 'Projects/MultiAgentArchitecture/README.md' with the following content. Use the API key from /root/.openclaw/obsidian-rest-api-key and the REST API at https://192.168.68.51:27124. Use PUT method with -k flag for self-signed cert.
+
+Content:
+# Multi-Agent Architecture
 
 ## Status: In Progress
 
@@ -373,41 +288,56 @@ Coordinator/worker multi-agent system for the Omnissiah.
 ## Tasks
 - [x] Define agent configs in openclaw.json
 - [x] Add role sections to AGENTS.md
-- [x] Configure subagent access
 - [x] Test each agent
 - [x] Create this project note
 - [ ] Set up monitor heartbeat tasks
 - [ ] Build skill sync (vault ↔ workspace)
 - [ ] Add cross-provider fallbacks
-'
+")
 ```
 
-**Step 2: Verify the note exists**
+Expected: vault-manager confirms file created successfully.
 
-```bash
-curl -k -s "https://192.168.68.51:27124/vault/Projects/MultiAgentArchitecture/README.md" \
-  -H "Authorization: Bearer $API_KEY" | head -5
+**Step 2: Sleep before verification**
+
+Run: `sleep 2`
+Expected: 2-second pause (Obsidian REST API needs rate limiting between operations).
+
+**Step 3: Verify the note exists using vault-manager**
+
+```
+sessions_spawn(agentId="vault-manager", task="Read the file 'Projects/MultiAgentArchitecture/README.md' from Obsidian vault using the REST API and report the first 5 lines.")
 ```
 
 Expected: Returns the markdown content starting with `# Multi-Agent Architecture`.
 
-**Step 3: Commit workspace changes**
+**Step 4: No workspace commit needed**
 
-```bash
-cd /root/.openclaw/workspace
-git add docs/plans/
-git commit -m "docs: add multi-agent architecture implementation plan"
-```
+Note: The project note lives in Obsidian vault, not workspace git. No commit step.
+
+**Troubleshooting:**
+- If vault-manager fails to create file: Check API key is valid, check network connectivity to 192.168.68.51:27124
+- If PUT returns 404: Verify the parent directory `Projects/MultiAgentArchitecture/` exists or create it first
+- If verification shows wrong content: Check for URL encoding issues in the PUT request body
+- If "connection refused": Verify Obsidian with REST API plugin is running
 
 ---
 
-### Task 6: Set Up Monitor Heartbeat Tasks
+### Task 5: Set Up Monitor Heartbeat Tasks
 
 **Files:**
-- Modify: `/root/.openclaw/workspace/HEARTBEAT.md`
+- Create: `/root/.openclaw/workspace/HEARTBEAT.md`
+- Create: `/root/.openclaw/workspace/memory/heartbeat-state.json`
 
-**Step 1: Write monitor-specific heartbeat checklist**
+**Step 1: Create the HEARTBEAT.md file**
 
+Use Write tool to create the monitor checklist:
+
+```bash
+# Create HEARTBEAT.md
+```
+
+Content:
 ```markdown
 # HEARTBEAT.md
 
@@ -430,26 +360,35 @@ When the monitor agent receives a heartbeat, run through these checks:
 - If nothing is due, reply HEARTBEAT_OK
 ```
 
-**Step 2: Create the heartbeat state file**
+**Step 2: Create the heartbeat state tracking file**
 
+Run:
 ```bash
 mkdir -p /root/.openclaw/workspace/memory
-cat > /root/.openclaw/workspace/memory/heartbeat-state.json << 'EOF'
+```
+
+Then use Write tool to create state file at `/root/.openclaw/workspace/memory/heartbeat-state.json`:
+
+```json
 {
   "lastChecks": {
     "email": null,
     "serverHealth": null
   }
 }
-EOF
 ```
 
-**Step 3: Verify heartbeat state file**
+**Step 3: Verify heartbeat files exist**
+
+Run: `ls -la /root/.openclaw/workspace/HEARTBEAT.md /root/.openclaw/workspace/memory/heartbeat-state.json`
+Expected: Both files listed with recent timestamps.
+
+**Step 4: Verify heartbeat state file content**
 
 Run: `cat /root/.openclaw/workspace/memory/heartbeat-state.json`
-Expected: Valid JSON with null timestamps.
+Expected: Valid JSON with null timestamps for both checks.
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```bash
 cd /root/.openclaw/workspace
@@ -457,12 +396,27 @@ git add HEARTBEAT.md memory/heartbeat-state.json
 git commit -m "feat: configure monitor heartbeat tasks and state tracking"
 ```
 
+**Troubleshooting:**
+- If mkdir fails: Directory may already exist (not an error) or permissions issue
+- If Write fails: Check file paths are absolute and parent directories exist
+- If JSON is invalid: Validate with `cat memory/heartbeat-state.json | jq .`
+- If commit fails: Verify files were actually created and contain expected content
+
 ---
 
 ## Execution Notes
 
-- **Task 1 & 3 are merged** — apply the full agents.list patch (including main with subagents.allowAgents) as a single config.patch operation
-- **Task 4 tests** should be run sequentially to avoid hitting maxConcurrent limits
-- **Task 5** needs `sleep 2` before the verify step (known REST API rate issue)
-- **Monitor heartbeat** (Task 6) won't fire until the config is applied and gateway restarts — the monitor's `heartbeat.every: "30m"` setting triggers it automatically
+- **Task 1** includes both agent definitions AND main agent subagent permissions in a single config patch
+- **Task 3 tests** should be run sequentially to avoid hitting maxConcurrent limits (default 8)
+- **Task 4** uses vault-manager agent exclusively for consistency with the multi-agent architecture
+- **Sleep commands** are included where REST API rate limiting is needed (Task 4 Step 2)
+- **Monitor heartbeat** won't fire until Task 5 is complete and gateway has processed the config — the monitor's `heartbeat.every: "30m"` setting triggers it automatically after that
 - The monitor agent is **independent** — it runs on its own heartbeat schedule, separate from main's disabled heartbeat
+
+## Next Steps
+
+After completing this plan:
+1. Monitor the monitor agent's heartbeat behavior for the first few cycles
+2. Implement skill sync between workspace and Obsidian vault
+3. Add cross-provider fallback (Ollama for non-critical tasks when Anthropic quota exceeded)
+4. Create example workflows that demonstrate coordinator/worker patterns
