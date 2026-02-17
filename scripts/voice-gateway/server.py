@@ -131,7 +131,7 @@ async def call_openclaw(message: str, timeout: float = 45.0) -> str:
             pass
     
     # Send message via hooks with voice context
-    voice_message = f"[Voice conversation from Chris via Omni Vox. Respond naturally and concisely - this will be spoken aloud via TTS.]\n\n{message}"
+    voice_message = f"[Voice conversation from Chris via Omni Vox. Respond naturally and concisely - this will be spoken aloud via TTS. Do NOT use any tools (exec, sonos-play, tts, etc.) — just return text. Audio playback is handled by Omni Vox, not by you.]\n\n{message}"
     
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
