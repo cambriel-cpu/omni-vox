@@ -13,6 +13,7 @@ const convoEl = document.getElementById('conversation');
 const speakerSelect = document.getElementById('speaker-select');
 const volumeInput = document.getElementById('volume');
 const ttsSelect = document.getElementById('tts-select');
+const llmSelect = document.getElementById('llm-select');
 
 // --- Audio Recording ---
 
@@ -78,6 +79,11 @@ async function sendVoice(audioBlob) {
     
     // TTS provider
     formData.append('tts_provider', ttsSelect.value || 'kokoro');
+    
+    // LLM model
+    if (llmSelect.value) {
+        formData.append('llm_model', llmSelect.value);
+    }
     
     // Sonos routing
     const speaker = speakerSelect.value;
@@ -268,8 +274,38 @@ ttsSelect.addEventListener('change', () => {
     localStorage.setItem('omni-vox-tts', ttsSelect.value);
 });
 
-// Discover speakers and TTS providers on load
+// --- LLM Model Discovery ---
+
+async function discoverLLMModels() {
+    try {
+        const res = await fetch(`${API}/api/llm/models`);
+        const data = await res.json();
+        
+        llmSelect.innerHTML = '';
+        for (const m of data.models) {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name;
+            llmSelect.appendChild(opt);
+        }
+        
+        // Restore saved preference
+        const saved = localStorage.getItem('omni-vox-llm');
+        if (saved && [...llmSelect.options].some(o => o.value === saved)) {
+            llmSelect.value = saved;
+        }
+    } catch (err) {
+        console.error('LLM model discovery failed:', err);
+    }
+}
+
+llmSelect.addEventListener('change', () => {
+    localStorage.setItem('omni-vox-llm', llmSelect.value);
+});
+
+// Discover speakers, TTS providers, and LLM models on load
 discoverSpeakers();
 discoverTTSProviders();
+discoverLLMModels();
 
 setStatus('', 'Ready — hold to talk');

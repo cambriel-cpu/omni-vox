@@ -115,7 +115,7 @@ async def health_check_short():
     """Short health alias for Docker HEALTHCHECK"""
     return await health_check()
 
-async def call_openclaw(message: str, timeout: float = 45.0) -> str:
+async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) -> str:
     """Send message to OpenClaw via hooks and poll transcript for response"""
     
     sessions_dir = os.environ.get("SESSIONS_DIR", "/root/.openclaw/agents/main/sessions")
@@ -133,15 +133,19 @@ async def call_openclaw(message: str, timeout: float = 45.0) -> str:
     # Send message via hooks with voice context
     voice_message = f"[Voice conversation from Chris via Omni Vox. Respond naturally and concisely - this will be spoken aloud via TTS. Do NOT use any tools (exec, sonos-play, tts, etc.) — just return text. Audio playback is handled by Omni Vox, not by you. Do NOT echo or quote back what Chris said — the transcript is already displayed in the UI. Just respond directly.]\n\n{message}"
     
+    hook_payload = {
+        "message": voice_message,
+        "sessionKey": HOOKS_SESSION_KEY,
+        "deliver": False,
+    }
+    if model:
+        hook_payload["model"] = model
+    
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{OPENCLAW_GATEWAY}/hooks/agent",
             headers={"Authorization": f"Bearer {hooks_token}", "Content-Type": "application/json"},
-            json={
-                "message": voice_message,
-                "sessionKey": HOOKS_SESSION_KEY,
-                "deliver": False,
-            }
+            json=hook_payload,
         )
         resp.raise_for_status()
         result = resp.json()
@@ -308,6 +312,18 @@ async def tts_providers():
     return {"providers": providers}
 
 
+LLM_MODELS = [
+    {"id": "anthropic/claude-opus-4-6", "name": "Claude Opus"},
+    {"id": "anthropic/claude-sonnet-4-5-20250929", "name": "Claude Sonnet"},
+    {"id": "anthropic/claude-haiku-4-5-20251001", "name": "Claude Haiku"},
+]
+
+@app.get("/api/llm/models")
+async def llm_models():
+    """List available LLM models"""
+    return {"models": LLM_MODELS}
+
+
 @app.post("/api/tts")
 async def text_to_speech(request: TTSRequest):
     """Generate speech using selected TTS provider"""
@@ -324,10 +340,11 @@ async def voice_interaction(
     sonos_location: Optional[str] = Form("local"),
     sonos_volume: Optional[int] = Form(None),
     tts_provider: Optional[str] = Form("kokoro"),
+    llm_model: Optional[str] = Form(None),
 ):
     """Main voice endpoint - transcribe, chat with Claude, generate TTS, optionally play on Sonos"""
     timing = {}
-    print(f"  Voice request: tts={tts_provider}, speaker={sonos_speaker}, location={sonos_location}, volume={sonos_volume}")
+    print(f"  Voice request: tts={tts_provider}, llm={llm_model}, speaker={sonos_speaker}, location={sonos_location}, volume={sonos_volume}")
     
     try:
         # Step 1: Transcribe
@@ -349,7 +366,7 @@ async def voice_interaction(
         if not hooks_token:
             raise HTTPException(status_code=500, detail="OpenClaw hooks token not configured")
         
-        llm_response = await call_openclaw(transcript)
+        llm_response = await call_openclaw(transcript, model=llm_model)
         timing["llm"] = round(time.time() - start, 2)
         
         # Clean up response for TTS (strip OpenClaw markup)
