@@ -82,7 +82,9 @@ async function sendVoice(audioBlob) {
     // Sonos routing
     const speaker = speakerSelect.value;
     if (speaker && speaker !== 'none') {
-        formData.append('sonos_speaker', speaker);
+        const [name, location] = speaker.split('|');
+        formData.append('sonos_speaker', name);
+        formData.append('sonos_location', location || 'local');
         formData.append('sonos_volume', volumeInput.value || '65');
     }
     
@@ -190,7 +192,8 @@ async function handleTalkEnd(e) {
             setStatus('speaking', 'Speaking...');
             await playAudioBase64(result.audio);
         } else if (usingSonos) {
-            setStatus('speaking', `Playing on ${speakerSelect.value}...`);
+            const speakerName = speakerSelect.value.split('|')[0];
+            setStatus('speaking', `Playing on ${speakerName}...`);
             // Sonos playback is fire-and-forget on the server side
             await new Promise(r => setTimeout(r, 2000));
         }
@@ -216,7 +219,7 @@ async function discoverSpeakers() {
         speakerSelect.innerHTML = '<option value="none">Phone speaker</option>';
         for (const speaker of data.speakers) {
             const opt = document.createElement('option');
-            opt.value = speaker.name;
+            opt.value = `${speaker.name}|${speaker.location}`;
             opt.textContent = `${speaker.name} (${speaker.location})`;
             speakerSelect.appendChild(opt);
         }

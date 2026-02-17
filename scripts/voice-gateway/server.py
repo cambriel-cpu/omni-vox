@@ -321,12 +321,13 @@ async def text_to_speech(request: TTSRequest):
 async def voice_interaction(
     audio: UploadFile = File(...),
     sonos_speaker: Optional[str] = Form(None),
+    sonos_location: Optional[str] = Form("local"),
     sonos_volume: Optional[int] = Form(None),
     tts_provider: Optional[str] = Form("kokoro"),
 ):
     """Main voice endpoint - transcribe, chat with Claude, generate TTS, optionally play on Sonos"""
     timing = {}
-    print(f"  Voice request: tts={tts_provider}, speaker={sonos_speaker}, volume={sonos_volume}")
+    print(f"  Voice request: tts={tts_provider}, speaker={sonos_speaker}, location={sonos_location}, volume={sonos_volume}")
     
     try:
         # Step 1: Transcribe
@@ -370,7 +371,7 @@ async def voice_interaction(
         if sonos_speaker:
             start = time.time()
             try:
-                await play_on_sonos(sonos_speaker, audio_bytes, sonos_volume)
+                await play_on_sonos(sonos_speaker, audio_bytes, sonos_volume, sonos_location)
                 timing["sonos"] = round(time.time() - start, 2)
             except Exception as e:
                 timing["sonos_error"] = str(e)
@@ -399,19 +400,20 @@ async def voice_interaction(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Voice interaction failed: {str(e)}")
 
-async def play_on_sonos(speaker_name: str, audio_bytes: bytes, volume: Optional[int] = None):
+async def play_on_sonos(speaker_name: str, audio_bytes: bytes, volume: Optional[int] = None, location: Optional[str] = "local"):
     """Play audio on Sonos speaker (local via soco, office via Magnus bridge)"""
     import socket
     import threading
     import urllib.parse
     from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-    # Try local speakers first
+    # Route by location — skip local matching for office speakers
     speaker = None
-    for s in local_speakers:
-        if speaker_name.lower() in s.player_name.lower():
-            speaker = s
-            break
+    if location != "office":
+        for s in local_speakers:
+            if speaker_name.lower() in s.player_name.lower():
+                speaker = s
+                break
 
     if not speaker:
         # Try office bridge (Magnus)
