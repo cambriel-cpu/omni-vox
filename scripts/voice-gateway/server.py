@@ -418,10 +418,12 @@ async def play_on_sonos(speaker_name: str, audio_bytes: bytes, volume: Optional[
     if not speaker:
         # Try office bridge (Magnus)
         async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"{MAGNUS_BRIDGE}/play/{speaker_name}"
+            if volume is not None:
+                url += f"?volume={volume}"
             resp = await client.post(
-                f"{MAGNUS_BRIDGE}/play",
+                url,
                 files={"audio": ("speech.mp3", audio_bytes, "audio/mpeg")},
-                data={"speaker": speaker_name, **({"volume": str(volume)} if volume is not None else {})},
             )
             if resp.status_code == 200:
                 print(f"  → Played on office speaker '{speaker_name}' via Magnus bridge")
