@@ -216,9 +216,12 @@ async def log_to_obsidian(transcript: str, response: str, timing: dict):
         f"*stt: {timing.get('transcribe', 0)}s · llm: {timing.get('llm', 0)}s · tts: {timing.get('tts', 0)}s · total: {total:.1f}s*\n\n---\n"
     )
     
-    # Read API key
-    api_key = Path("/root/.openclaw/obsidian-rest-api-key").read_text().strip()
-    base = "https://192.168.68.51:27124"
+    # Read API key and URL from env
+    api_key = os.environ.get("OBSIDIAN_API_KEY", "")
+    base = os.environ.get("OBSIDIAN_URL", "https://192.168.68.51:27124")
+    if not api_key:
+        print("  ⚠ OBSIDIAN_API_KEY not set — skipping vault log")
+        return
     headers = {"Authorization": f"Bearer {api_key}"}
     
     async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
