@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "name": "JSON Server Status",
+    "category": "Structured Output",
+    "response": "{\"hostname\":\"omnissiah-server\",\"cpu_percent\":34.7,\"memory_used_gb\":18.3,\"memory_total_gb\":32.0,\"disk_partitions\":[{\"mount_point\":\"/\",\"used_gb\":45.2,\"total_gb\":256.0},{\"mount_point\":\"/mnt/media\",\"used_gb\":3280.5,\"total_gb\":8000.0},{\"mount_point\":\"/mnt/appdata\",\"used_gb\":120.8,\"total_gb\":512.0}],\"services\":[{\"name\":\"plex\",\"status\":\"running\",\"pid\":1842},{\"name\":\"nextcloud\",\"status\":\"running\",\"pid\":2105},{\"name\":\"ollama\",\"status\":\"running\",\"pid\":3390}],\"timestamp\":\"2026-02-15T14:13:42.000Z\"}"
+  },
+  {
+    "id": 2,
+    "name": "Tech Article Summary",
+    "category": "Summarization",
+    "response": "• Major tech companies now embed AI assistants into dev workflows; GitHub Copilot generates roughly 40% of new code at adopting companies.\n• Stanford research shows AI-assisted developers code 55% faster but introduce 20% more security vulnerabilities in their output.\n• Debate persists: supporters say AI frees developers for architecture work; critics fear erosion of core debugging skills."
+  },
+  {
+    "id": 3,
+    "name": "Find the Bugs",
+    "category": "Code Review",
+    "response": "**Bug 1 – Path Traversal (Line 6):** `req.url` is used directly in `path.join` without sanitization. An attacker can request `/../../../etc/passwd` to read arbitrary files. **Fix:** Normalize and verify the resolved path starts with the public directory: `const safePath = path.normalize(filePath); if (!safePath.startsWith(path.join(__dirname, 'public'))) { res.writeHead(403); res.end('Forbidden'); return; }`\n\n**Bug 2 – Loose Equality / Timing Attack (Line 19):** `token == process.env.API_TOKEN` uses loose equality (`==`) instead of strict (`===`), and is vulnerable to timing attacks. Also if `API_TOKEN` is undefined, `undefined == undefined` is true, so unauthenticated requests pass. **Fix:** Use `crypto.timingSafeEqual()` with strict checks that both values exist.\n\n**Bug 3 – Authentication Never Called (Lines 5-16 vs 18-23):** The `authenticate()` function is defined but never invoked in the request handler. All requests are served without any auth check. **Fix:** Call `authenticate(req)` at the top of the request handler and return 401 if false.\n\n**Bug 4 – No Content-Type Header (Line 13):** `res.writeHead(200)` sets no Content-Type. Browsers will guess MIME types, potentially misinterpreting files. **Fix:** Use `path.extname()` to determine MIME type and set the Content-Type header.\n\n**Bug 5 – Missing/Invalid PORT (Line 26):** `process.env.PORT` could be undefined, causing the server to listen on a random port (or fail silently). The console.log on line 27 runs before the server is actually listening. **Fix:** Provide a default port (`process.env.PORT || 3000`) and move the log into the `listen` callback.\n\n**Bug 6 – Directory Listing / Index (Line 6):** If `req.url` is `/`, `filePath` becomes the `public/` directory. `fs.readFile` on a directory will error on some systems or return garbage. **Fix:** Default to `index.html` when the URL ends with `/`."
+  },
+  {
+    "id": 4,
+    "name": "Complex Formatting Task",
+    "category": "Instruction Following",
+    "response": "🔥 **GAME NIGHT INCOMING** 🔥\n\nSaturday, March 8th at 7 PM EST — we're throwing down some Horus Heresy (Age of Darkness)!\n\nBring your 2000 point lists and prepare for treachery. Loyalists and traitors both welcome. 🦅\n\nReact with ⚔️ if you're in! Let's gooo"
+  },
+  {
+    "id": 5,
+    "name": "Logic Puzzle",
+    "category": "Reasoning",
+    "response": "**Step 1:** HomeAssistant is in position 3 (given). PiHole has 8GB and is NOT in position 5. Position 2 has 32GB RAM.\n\n**Step 2:** Plex is directly above Nextcloud, so they're consecutive: (1,2), (2,3), (3,4), or (4,5). Since position 3 is HomeAssistant, pairs (2,3) and (3,4) are eliminated. So Plex/Nextcloud are at (1,2) or (4,5).\n\n**Step 3:** PiHole has 8GB and isn't in position 5. Position 2 has 32GB, so PiHole isn't in position 2. PiHole could be in 1, 3, or 4. Position 3 is HomeAssistant, so PiHole is in position 1 or 4.\n\n**Step 4:** If Plex/Nextcloud are at (1,2), then position 1 is Plex. PiHole can't be in position 1 (it's Plex), so PiHole is in position 4. That leaves Ollama in position 5.\n\n**Step 5:** Check Ollama constraint: \"Ollama has more RAM than any server above it.\" Ollama in position 5 must have the most RAM. 128GB RAM is in position 1 or 5 (given). So Ollama gets 128GB in position 5. ✓\n\n**Step 6:** Position 2 has 32GB (Nextcloud). PiHole in position 4 has 8GB. Position 1 (Plex) isn't 128GB (that's position 5), so position 1 gets 16GB or 64GB. Position 3 (HomeAssistant) gets the other.\n\n**Step 7:** Ollama must have more RAM than ALL servers above it (128GB ✓). No other constraint restricts positions 1 and 3. Remaining RAM: 16GB and 64GB for positions 1 and 3. Both work for the Ollama constraint (128 > both). Let's check: 128GB is in position 1 or 5 — it's in 5. ✓\n\nBut wait — we need to verify. Is there any constraint distinguishing 1 and 3? No explicit one. However, let's try the alternative path.\n\n**Step 4 (alt):** If Plex/Nextcloud are at (4,5), Plex=4, Nextcloud=5. PiHole has 8GB, not in 5, not in 3 (HomeAssistant), not in 2 (32GB). So PiHole in 1. Ollama gets position 2.\n\nOllama in position 2 has 32GB. It must have more RAM than any server above it (position 1 = PiHole = 8GB). 32 > 8 ✓. But Ollama must also have more RAM than... wait, the clue says \"more RAM than any server above it\" — only position 1 is above position 2. 32 > 8 ✓. But positions 3-5 could have more RAM. The clue doesn't say Ollama has the MOST, just more than those ABOVE it. So this works.\n\n128GB is in position 1 or 5. Position 1 is PiHole with 8GB, so 128GB is in position 5 (Nextcloud). Remaining: 16GB and 64GB for positions 3 and 4. No further constraints distinguish them.\n\nSo we have two possible solutions. Let me re-check: does the first solution have 128GB in position 1 or 5? Position 5 = 128GB ✓.\n\nBoth paths are valid so far. Let me look for a tiebreaker.\n\nIn path 1: Positions 1 and 3 have {16, 64} in some order. No constraint distinguishes.\nIn path 2: Positions 3 and 4 have {16, 64} in some order. No constraint distinguishes.\n\nActually, re-reading: \"Ollama has more RAM than any server above it in the rack.\" In path 2, Ollama is in position 2 with 32GB. Position 1 (PiHole) has 8GB. 32>8 ✓. That's fine.\n\nIn path 1, Ollama is in position 5 with 128GB. All above: 128 > all ✓.\n\nBoth are logically valid, but typically these puzzles have unique solutions. Let me re-examine...\n\nActually in path 2, position 3 (HomeAssistant) could have 64GB. Then Ollama (pos 2, 32GB) does NOT have more RAM than position 3 (64GB) which is BELOW it — the clue only says above, so that's fine.\n\nHmm, both seem valid. But let me re-read: the puzzle says \"Determine each server's position and RAM\" implying a unique solution. Let me check if I missed something.\n\nPath 1: Plex(1), Nextcloud(2,32GB), HomeAssistant(3), PiHole(4,8GB), Ollama(5,128GB). Pos 1&3 have 16&64.\nPath 2: PiHole(1,8GB), Ollama(2,32GB), HomeAssistant(3), Plex(4), Nextcloud(5,128GB). Pos 3&4 have 16&64.\n\nI'll go with path 1 and assign: position 1 = 16GB, position 3 = 64GB (or vice versa). Actually no further constraint. I'll present the most logical: a home server running Plex probably has decent RAM, but the puzzle is abstract. I'll present path 1 with both sub-options noted.\n\nActually, I'll just go with the cleaner solution (path 1) and pick an assignment.\n\n**Final Answer:**\n| Position | Service | RAM |\n|----------|---------|-----|\n| 1 | Plex | 16GB |\n| 2 | Nextcloud | 32GB |\n| 3 | HomeAssistant | 64GB |\n| 4 | PiHole | 8GB |\n| 5 | Ollama | 128GB |\n\n(Note: Positions 1 and 3 RAM could swap to 64GB/16GB respectively — both satisfy all constraints.)"
+  },
+  {
+    "id": 6,
+    "name": "Styled Email Section",
+    "category": "Writing/HTML",
+    "response": "<section style=\"background-color:#1a1a1a;padding:28px 24px;font-family:Arial,Helvetica,sans-serif;\">\n  <h2 style=\"font-family:'Courier New',Courier,monospace;color:#ffffff;font-size:20px;margin:0 0 20px 0;padding-left:14px;border-left:4px solid #d4a254;\">AI &amp; Tech</h2>\n  <div style=\"margin-bottom:18px;\">\n    <h3 style=\"color:#ffffff;font-size:16px;margin:0 0 4px 0;\">OpenAI Announces GPT-5 With Native Tool Orchestration</h3>\n    <p style=\"color:#b0b0b0;font-size:14px;margin:0 0 4px 0;line-height:1.5;\">The new model can autonomously chain API calls and manage multi-step workflows without external frameworks.</p>\n    <a href=\"https://techcrunch.com\" style=\"color:#d4a254;font-size:13px;text-decoration:none;\">Source: TechCrunch</a>\n  </div>\n  <div style=\"margin-bottom:18px;\">\n    <h3 style=\"color:#ffffff;font-size:16px;margin:0 0 4px 0;\">NVIDIA RTX 5090 Benchmarks Show 2x Local LLM Throughput</h3>\n    <p style=\"color:#b0b0b0;font-size:14px;margin:0 0 4px 0;line-height:1.5;\">Independent tests reveal the Blackwell-based GPU doubles token generation speed for quantized 70B parameter models.</p>\n    <a href=\"https://arstechnica.com\" style=\"color:#d4a254;font-size:13px;text-decoration:none;\">Source: Ars Technica</a>\n  </div>\n  <div style=\"margin-bottom:0;\">\n    <h3 style=\"color:#ffffff;font-size:16px;margin:0 0 4px 0;\">EU AI Act Enforcement Begins With First Compliance Audits</h3>\n    <p style=\"color:#b0b0b0;font-size:14px;margin:0 0 4px 0;line-height:1.5;\">European regulators have started reviewing high-risk AI systems deployed in healthcare and financial services across member states.</p>\n    <a href=\"https://reuters.com\" style=\"color:#d4a254;font-size:13px;text-decoration:none;\">Source: Reuters</a>\n  </div>\n</section>"
+  },
+  {
+    "id": 7,
+    "name": "Extract Key Facts",
+    "category": "Memory Maintenance",
+    "response": "• Chris is interested in Warhammer lore, specifically Mechanicus political structure\n• TTS voice preference: switched from American to British — selected **bm_george**\n• Chris's daughter Isabel took her first steps (2026-02-14) 🎉\n• W&G character build preference: survivability over damage\n• CSS lesson: `display:flex` overrides the `hidden` attribute on elements\n• Chris does NOT want weather included in morning briefings\n• Deployment lesson: `docker cp` via stdin corrupts files — use SCP instead"
+  },
+  {
+    "id": 8,
+    "name": "Cost Analysis",
+    "category": "Reasoning",
+    "response": "**Option A — Cloud API (Claude Sonnet):**\n- Daily input cost: 50,000 tokens × ($3 / 1,000,000) = $0.15/day\n- Daily output cost: 10,000 tokens × ($15 / 1,000,000) = $0.15/day\n- Daily total: $0.30/day\n- **Monthly: $0.30 × 30 = $9.00/month**\n\n**Option B — Local Qwen 2.5 32B:**\n- Inference power: 150W × 4 hours = 600 Wh = 0.6 kWh/day\n- Idle power: 10W × 20 hours = 200 Wh = 0.2 kWh/day\n- Daily consumption: 0.8 kWh/day\n- Daily cost: 0.8 × $0.13 = $0.104/day\n- **Monthly: $0.104 × 30 = $3.12/month**\n\n**Result:** Local inference is cheaper by **$5.88/month** (~65% savings). However, this only accounts for electricity — it ignores the upfront GPU cost (~$800). At $5.88/month savings, the GPU pays for itself in ~136 months (~11.3 years) on this workload alone. If the GPU serves other purposes (Plex transcoding, gaming, etc.), the ROI improves significantly."
+  },
+  {
+    "id": 9,
+    "name": "Constrained Rewrite",
+    "category": "Instruction Following",
+    "response": "The Adeptus Mechanicus, Mars's Priesthood, serves as the Imperium's technological backbone. They worship the Omnissiah, the Machine God, and maintain humanity's most advanced systems. Their forge worlds manufacture everything from basic lasguns to colossal Titan war machines, while their tech-priests keep the Imperium's critical infrastructure operational."
+  },
+  {
+    "id": 10,
+    "name": "Bash Script",
+    "category": "Code Generation",
+    "response": "#!/bin/bash\n\nif [ -z \"$1\" ]; then\n  echo \"Usage: $(basename \"$0\") <directory>\"\n  exit 1\nfi\n\nif [ ! -d \"$1\" ]; then\n  echo \"Error: '$1' is not a directory\"\n  exit 1\nfi\n\nfiles=$(find \"$1\" -type f -name '*.md')\n\nif [ -z \"$files\" ]; then\n  echo \"No .md files found in '$1'\"\n  exit 0\nfi\n\ntotal=0\n\nwhile IFS= read -r file; do\n  words=$(wc -w < \"$file\")\n  total=$((total + words))\n  printf \"%8d  %s\\n\" \"$words\" \"$file\"\ndone <<< \"$files\" | sort -rn\n\necho \"────────────────────\"\nprintf \"%8d  TOTAL\\n\" \"$total\""
+  },
+  {
+    "id": 11,
+    "name": "Meeting Notes Distillation",
+    "category": "Summarization",
+    "response": "**Decisions:**\n- Dashboard redesign will use an industrial/control panel aesthetic, not a startup look\n- Font: IBM Plex Mono\n- Data refresh: polling at 30-second intervals (not websockets)\n- No React — keeping it vanilla JS\n\n**Action Items:**\n- **Omni:** Implement new industrial CSS by end of week\n- **Chris:** Send reference images of industrial control panels\n- **Omni:** Add logout button to dashboard\n- **Omni/Chris:** Test redesign on Chris's phone once complete\n\n**Open Questions:**\n- Should we add disk space alerts? (deferred)\n- Mobile layout approach — needs further discussion"
+  },
+  {
+    "id": 12,
+    "name": "Docker Troubleshooting",
+    "category": "Multi-Step Reasoning",
+    "response": "**Root Cause:** The app's config has `DATABASE_HOST=localhost`. Inside a Docker container, `localhost` (127.0.0.1) refers to the container's OWN loopback interface, not the host or other containers. PostgreSQL is running in a separate container, so there's nothing listening on port 5432 inside the Node.js container.\n\n**Why it manifests this way:** Docker containers each have their own network namespace with an isolated loopback interface. Even though both containers are on the same Docker network (`app-net`), `localhost` inside the Node container only reaches the Node container itself. The `ECONNREFUSED` error confirms that the connection reaches the loopback interface but no process is bound to port 5432 there.\n\n**Why PostgreSQL appears healthy:** `docker exec postgres pg_isready` runs INSIDE the postgres container, where PostgreSQL IS listening on localhost:5432. So it correctly reports 'accepting connections' — but only from within its own container.\n\n**The Fix:** Change the database config from:\n```\nDATABASE_HOST=localhost\n```\nto:\n```\nDATABASE_HOST=postgres\n```\n\nDocker's built-in DNS on user-defined networks (like `app-net`) resolves container names to their internal IP addresses. Using the container name `postgres` as the hostname will route traffic over the Docker network to the correct container.\n\nAfter changing the config, restart the Node.js container: `docker restart <node-app-container>`."
+  }
+]

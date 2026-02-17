@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "category": "Structured Output",
+    "name": "JSON Server Status",
+    "prompt": "Generate a JSON object representing a server health check with these fields: hostname (string), cpu_percent (number 0-100), memory_used_gb (number), memory_total_gb (number), disk_partitions (array of objects with mount_point, used_gb, total_gb), services (array of objects with name, status as 'running'|'stopped'|'error', pid as number or null), timestamp (ISO 8601). Make up realistic values for a home server running Plex, Nextcloud, and Ollama. Output ONLY valid JSON, no markdown fences."
+  },
+  {
+    "id": 2,
+    "category": "Summarization",
+    "name": "Tech Article Summary",
+    "prompt": "Summarize the following in exactly 3 bullet points, each under 30 words:\n\nThe rapid advancement of AI has led to significant changes in software development practices. Companies like Google, Microsoft, and Meta are integrating AI assistants directly into their development workflows. GitHub Copilot now handles an estimated 40% of new code at companies that have adopted it. However, concerns persist about code quality, security vulnerabilities introduced by AI-generated code, and the long-term impact on developer skills. A recent study from Stanford found that developers using AI assistants wrote code 55% faster but introduced 20% more security vulnerabilities. The debate continues about whether AI coding assistants are a net positive, with some arguing they free developers to focus on architecture and design, while others worry about creating a generation of developers who can't debug effectively."
+  },
+  {
+    "id": 3,
+    "category": "Code Review",
+    "name": "Find the Bugs",
+    "prompt": "Review this Node.js code and identify ALL bugs, security issues, and logic errors. Be specific about line numbers and fixes.\n\n```javascript\nconst http = require('http');\nconst fs = require('fs');\nconst path = require('path');\n\nconst server = http.createServer((req, res) => {\n  const filePath = path.join(__dirname, 'public', req.url);\n  \n  fs.readFile(filePath, (err, data) => {\n    if (err) {\n      res.writeHead(404);\n      res.end('Not found');\n      return;\n    }\n    res.writeHead(200);\n    res.end(data);\n  });\n});\n\nfunction authenticate(req) {\n  const token = req.headers['authorization'];\n  if (token == process.env.API_TOKEN) {\n    return true;\n  }\n  return false;\n}\n\nserver.listen(process.env.PORT);\nconsole.log('Server started on port ' + process.env.PORT);\n```"
+  },
+  {
+    "id": 4,
+    "category": "Instruction Following",
+    "name": "Complex Formatting Task",
+    "prompt": "Write a Discord message (under 500 characters) announcing a Warhammer game night. Requirements:\n1. Must include a date: Saturday March 8th, 7 PM EST\n2. Must mention it's Horus Heresy (Age of Darkness)\n3. Must include point limit: 2000 points\n4. Must ask people to react with ⚔️ if attending\n5. Must NOT use any markdown headers (#)\n6. Must use at least one emoji besides ⚔️\n7. Tone: casual and excited, not formal"
+  },
+  {
+    "id": 5,
+    "category": "Reasoning",
+    "name": "Logic Puzzle",
+    "prompt": "Five servers are in a rack, numbered 1-5 from top to bottom. Each runs a different service (Plex, Nextcloud, Ollama, HomeAssistant, PiHole) and has a different amount of RAM (8GB, 16GB, 32GB, 64GB, 128GB).\n\n- The Plex server is directly above the Nextcloud server.\n- The server with 128GB RAM is in position 1 or 5.\n- Ollama has more RAM than any server above it in the rack.\n- PiHole has 8GB and is not in position 5.\n- HomeAssistant is in position 3.\n- The server in position 2 has 32GB RAM.\n\nDetermine each server's position and RAM. Show your reasoning step by step."
+  },
+  {
+    "id": 6,
+    "category": "Writing/HTML",
+    "name": "Styled Email Section",
+    "prompt": "Write a single HTML <section> element for a newsletter email. The section is titled 'AI & Tech' and contains 3 news items. Each item has a headline, one-sentence description, and a source link. Use inline CSS only (email-safe). Design: dark background (#1a1a1a), amber accent (#d4a254) for the section header border-left, light gray text (#b0b0b0), white headlines. Monospace font for the header. Make up realistic tech news items. Output only the HTML, no explanation."
+  },
+  {
+    "id": 7,
+    "category": "Memory Maintenance",
+    "name": "Extract Key Facts",
+    "prompt": "Read the following daily log and extract ONLY the information worth keeping in a long-term memory file. Output as concise bullet points. Ignore routine operations, focus on decisions, preferences, new information, and lessons learned.\n\n---\n2026-02-14 Log:\n- 9:00 AM: Morning briefing delivered successfully\n- 9:15 AM: Chris asked about Warhammer lore - discussed Mechanicus political power\n- 10:30 AM: Ran GPU telemetry, all normal (42°C, 8W idle)\n- 11:00 AM: Chris wants to switch TTS voice from American to British\n- 11:30 AM: Tested 4 British voices, Chris picked bm_george\n- 12:00 PM: Lunch break\n- 1:00 PM: Chris mentioned his daughter Isabel took her first steps today\n- 1:15 PM: Helped Chris with W&G character build - he prefers survivability over damage\n- 2:00 PM: Dashboard CSS fix - learned that flex overrides hidden attribute\n- 3:00 PM: Routine git commit and push\n- 3:30 PM: Chris said he doesn't want weather in morning briefings\n- 4:00 PM: Tried deploying via docker cp stdin - corrupted files. SCP works better.\n- 5:00 PM: Chris going offline for dinner\n---"
+  },
+  {
+    "id": 8,
+    "category": "Reasoning",
+    "name": "Cost Analysis",
+    "prompt": "Calculate the monthly cost comparison:\n\nOption A - Cloud API:\n- Claude Sonnet: $3/M input tokens, $15/M output tokens\n- Average daily usage: 50K input tokens, 10K output tokens for subagent tasks\n\nOption B - Local Qwen 2.5 32B:\n- GPU: RTX 4070 Ti Super, 200W TDP, runs at ~150W average during inference\n- Electricity: $0.13/kWh\n- Average inference time: 4 hours/day\n- Idle power: 10W remaining 20 hours\n\nCalculate monthly cost for each option. Show your math. Which is cheaper and by how much?"
+  },
+  {
+    "id": 9,
+    "category": "Instruction Following",
+    "name": "Constrained Rewrite",
+    "prompt": "Rewrite the following paragraph in EXACTLY 50 words (not 49, not 51 — exactly 50). Preserve the core meaning.\n\nOriginal: \"The Adeptus Mechanicus, also known as the Priesthood of Mars, is a technological organization in the Imperium of Man. They worship the Machine God, known as the Omnissiah, and maintain most of the Imperium's advanced technology. Their forge worlds produce everything from lasguns to Titan war machines, and their tech-priests are responsible for maintaining the complex systems that keep the Imperium functioning.\""
+  },
+  {
+    "id": 10,
+    "category": "Code Generation",
+    "name": "Bash Script",
+    "prompt": "Write a bash script that:\n1. Takes a directory path as argument\n2. Finds all .md files recursively\n3. For each file, counts the words\n4. Outputs a sorted table (most words first) with columns: WORDS, FILE\n5. Adds a total at the bottom\n6. Handles the case where no .md files exist (print message and exit 0)\n7. Handles missing directory argument (print usage and exit 1)\n\nOutput ONLY the script, no explanation."
+  },
+  {
+    "id": 11,
+    "category": "Summarization",
+    "name": "Meeting Notes Distillation",
+    "prompt": "Convert these raw meeting notes into a clean summary with three sections: Decisions, Action Items (with owner), and Open Questions.\n\nNotes:\n- talked about dashboard redesign, chris wants industrial look\n- omni suggested IBM Plex Mono font, chris agreed\n- need to figure out if we want websockets or polling... decided on polling for now, 30s refresh\n- chris: 'make it look like a control panel not a startup dashboard'\n- TODO: omni to implement new CSS by end of week\n- TODO: chris will send reference images of industrial control panels\n- should we add alerts for disk space? left it for later\n- auth is working but need to add logout button\n- TODO: omni to add logout button to dashboard\n- chris asked if we should use React... decided no, keep it vanilla\n- what about mobile layout? needs more thought\n- TODO: test on chris's phone once redesign is done"
+  },
+  {
+    "id": 12,
+    "category": "Multi-Step Reasoning",
+    "name": "Docker Troubleshooting",
+    "prompt": "A Docker container running a Node.js app keeps restarting. Here's what we know:\n- `docker logs` shows: 'Error: ECONNREFUSED 127.0.0.1:5432'\n- The app connects to PostgreSQL\n- PostgreSQL runs in a separate container named 'postgres' on the same Docker network\n- The app's config file has: DATABASE_HOST=localhost\n- Both containers are on network 'app-net'\n- `docker exec postgres pg_isready` returns 'accepting connections'\n\nDiagnose the issue. Explain the root cause, why it manifests this way, and provide the fix. Be specific."
+  }
+]

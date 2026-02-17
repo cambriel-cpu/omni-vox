@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "name": "JSON Server Status",
+    "category": "Structured Output",
+    "response": "{\"hostname\":\"omnissiah.local\",\"cpu_percent\":34.5,\"memory_used_gb\":12.8,\"memory_total_gb\":32.0,\"disk_partitions\":[{\"mount_point\":\"/\",\"used_gb\":145.2,\"total_gb\":250.0},{\"mount_point\":\"/mnt/media\",\"used_gb\":1847.3,\"total_gb\":4000.0},{\"mount_point\":\"/mnt/appdata\",\"used_gb\":89.6,\"total_gb\":500.0}],\"services\":[{\"name\":\"plex\",\"status\":\"running\",\"pid\":1247},{\"name\":\"nextcloud\",\"status\":\"running\",\"pid\":1389},{\"name\":\"ollama\",\"status\":\"running\",\"pid\":2156},{\"name\":\"nginx\",\"status\":\"running\",\"pid\":856},{\"name\":\"postgres\",\"status\":\"running\",\"pid\":1098},{\"name\":\"redis\",\"status\":\"stopped\",\"pid\":null}],\"timestamp\":\"2026-02-15T14:13:42.847Z\"}"
+  },
+  {
+    "id": 2,
+    "name": "Tech Article Summary", 
+    "category": "Summarization",
+    "response": "• AI assistants like GitHub Copilot handle ~40% of new code at adopting companies, enabling 55% faster development but introducing 20% more vulnerabilities.\n• Major tech companies integrate AI directly into workflows while concerns persist about code quality, security risks, and developer skill degradation.\n• Debate continues: AI frees developers for architecture/design work versus creating a generation unable to debug effectively without assistance."
+  },
+  {
+    "id": 3,
+    "name": "Find the Bugs",
+    "category": "Code Review", 
+    "response": "**CRITICAL SECURITY VULNERABILITIES:**\n\n1. **Path Traversal Attack (Line 6)** - `req.url` directly concatenated without sanitization allows attackers to access files outside public directory using `../../../etc/passwd`\n   - Fix: Use `path.normalize()` and validate path stays within public directory\n\n2. **Weak Authentication (Line 17)** - Using `==` instead of `===` allows type coercion attacks\n   - Fix: Use `token === process.env.API_TOKEN`\n\n3. **Authentication Not Used** - `authenticate()` function exists but isn't called anywhere in the request handler\n   - Fix: Add authentication check in request handler\n\n4. **Missing Content-Type Header** - Server doesn't set proper MIME types, causing browsers to potentially misinterpret files\n   - Fix: Use `path.extname()` to determine and set appropriate Content-Type\n\n5. **No Input Validation** - Missing checks for empty `process.env.PORT`\n   - Fix: Validate PORT exists and is numeric\n\n6. **Information Disclosure** - Generic 'Not found' message doesn't distinguish between file not existing vs. access denied\n\n**CORRECTED VERSION:**\n```javascript\nconst server = http.createServer((req, res) => {\n  if (!authenticate(req)) {\n    res.writeHead(401);\n    res.end('Unauthorized');\n    return;\n  }\n  \n  const safePath = path.normalize(req.url).replace(/^(\\..[/\\\\])+/, '');\n  const filePath = path.join(__dirname, 'public', safePath);\n  \n  if (!filePath.startsWith(path.join(__dirname, 'public'))) {\n    res.writeHead(403);\n    res.end('Forbidden');\n    return;\n  }\n  \n  fs.readFile(filePath, (err, data) => {\n    if (err) {\n      res.writeHead(404);\n      res.end('Not found');\n      return;\n    }\n    \n    const ext = path.extname(filePath);\n    const contentType = {\n      '.html': 'text/html',\n      '.js': 'text/javascript',\n      '.css': 'text/css',\n      '.json': 'application/json'\n    }[ext] || 'text/plain';\n    \n    res.writeHead(200, {'Content-Type': contentType});\n    res.end(data);\n  });\n});\n```"
+  },
+  {
+    "id": 4,
+    "name": "Complex Formatting Task",
+    "category": "Instruction Following",
+    "response": "🔥 **WARHAMMER GAME NIGHT** 🔥\n\nSaturday March 8th, 7 PM EST - Horus Heresy (Age of Darkness) action! Bring your 2000 point army and let's see who stands with the Emperor and who falls to Chaos! 🛡️\n\nReact with ⚔️ if you're attending - need to know numbers for table setup. Time to purge some heretics! 💀"
+  },
+  {
+    "id": 5,
+    "name": "Logic Puzzle",
+    "category": "Reasoning",
+    "response": "**Step-by-step reasoning:**\n\n**Given facts:**\n- HomeAssistant is in position 3\n- Position 2 has 32GB RAM\n- PiHole has 8GB and is not in position 5\n- 128GB RAM is in position 1 or 5\n- Plex is directly above Nextcloud\n- Ollama has more RAM than any server above it\n\n**Step 1:** Place HomeAssistant in position 3.\n\n**Step 2:** Since PiHole has 8GB and isn't in position 5, it must be in positions 1, 2, or 4. But position 2 has 32GB, so PiHole is in position 1 or 4.\n\n**Step 3:** 128GB RAM is in position 1 or 5. If PiHole (8GB) is in position 1, then 128GB must be in position 5.\n\n**Step 4:** Plex is directly above Nextcloud. Possible pairs: (1,2), (2,3), (3,4), (4,5). Since HomeAssistant is in position 3, the pairs could be (1,2), (2,3), or (4,5). But if (2,3), then Nextcloud would be HomeAssistant, which is impossible. So Plex-Nextcloud pairs are (1,2) or (4,5).\n\n**Step 5:** Ollama has more RAM than any server above it. If 128GB is in position 5, then Ollama could be in position 5 with 128GB.\n\n**Step 6:** Testing PiHole in position 1:\n- Position 1: PiHole (8GB)\n- Position 2: 32GB (must be Plex if Plex-Nextcloud is (1,2), but position 1 is PiHole, so this doesn't work)\n- Therefore, Plex-Nextcloud must be (4,5)\n\n**Step 7:** So far:\n- Position 1: PiHole (8GB)\n- Position 2: ? (32GB)\n- Position 3: HomeAssistant (?)\n- Position 4: Plex (?)\n- Position 5: Nextcloud (128GB)\n\n**Step 8:** Ollama has more RAM than servers above it. Ollama must be in position 5 (Nextcloud) with 128GB, or position 4, 3, or 2. Since Nextcloud is in position 5, Ollama must be in position 2, 3, or 4.\n\n**Step 9:** If Ollama is in position 4 (Plex), it needs more RAM than positions 1, 2, 3. Position 1 has 8GB, position 2 has 32GB. So Ollama would need >32GB. Position 5 has 128GB, leaving 16GB and 64GB for positions 3 and 4. Since Ollama needs >32GB, it would have 64GB.\n\n**Step 10:** Final arrangement:\n- Position 1: PiHole (8GB)\n- Position 2: Nextcloud (32GB) - WAIT, this contradicts Plex being directly above Nextcloud\n\nLet me reconsider: If PiHole is in position 4:\n- Position 4: PiHole (8GB)\n- Position 5: ? (128GB)\n- Plex-Nextcloud pairs: (1,2) or (2,3)\n\nSince HomeAssistant is in position 3, Plex-Nextcloud must be (1,2).\n\n**Final solution:**\n- Position 1: Plex (64GB)\n- Position 2: Nextcloud (32GB) \n- Position 3: HomeAssistant (16GB)\n- Position 4: PiHole (8GB)\n- Position 5: Ollama (128GB)\n\nThis satisfies all conditions: Plex above Nextcloud, position 2 has 32GB, PiHole has 8GB and isn't in position 5, 128GB is in position 5, and Ollama has more RAM than all servers above it."
+  },
+  {
+    "id": 6,
+    "name": "Styled Email Section",
+    "category": "Writing/HTML",
+    "response": "<section style=\"background-color: #1a1a1a; padding: 20px; margin: 16px 0; border-left: 4px solid #d4a254;\"><h2 style=\"font-family: 'Courier New', Courier, monospace; color: #d4a254; font-size: 18px; margin: 0 0 16px 0; font-weight: bold;\">AI & Tech</h2><div style=\"margin-bottom: 12px;\"><h3 style=\"color: white; font-size: 16px; margin: 0 0 4px 0; font-weight: bold;\">OpenAI Launches GPT-5 with Multimodal Reasoning</h3><p style=\"color: #b0b0b0; font-size: 14px; margin: 0 0 4px 0; line-height: 1.4;\">The new model demonstrates significant improvements in complex reasoning tasks and real-time video understanding capabilities.</p><a href=\"https://techcrunch.com/gpt5-launch\" style=\"color: #d4a254; font-size: 12px; text-decoration: none;\">TechCrunch</a></div><div style=\"margin-bottom: 12px;\"><h3 style=\"color: white; font-size: 16px; margin: 0 0 4px 0; font-weight: bold;\">Apple Unveils M4 Ultra Chip with 128-Core GPU</h3><p style=\"color: #b0b0b0; font-size: 14px; margin: 0 0 4px 0; line-height: 1.4;\">The new silicon promises 40% better performance per watt for AI workloads compared to the M3 generation.</p><a href=\"https://arstechnica.com/m4-ultra-announcement\" style=\"color: #d4a254; font-size: 12px; text-decoration: none;\">Ars Technica</a></div><div style=\"margin-bottom: 0;\"><h3 style=\"color: white; font-size: 16px; margin: 0 0 4px 0; font-weight: bold;\">Meta's Code Llama 3 Achieves 95% Pass Rate on HumanEval</h3><p style=\"color: #b0b0b0; font-size: 14px; margin: 0 0 4px 0; line-height: 1.4;\">The latest iteration significantly outperforms GPT-4 on coding benchmarks while remaining open-source.</p><a href=\"https://theverge.com/meta-code-llama-3\" style=\"color: #d4a254; font-size: 12px; text-decoration: none;\">The Verge</a></div></section>"
+  },
+  {
+    "id": 7,
+    "name": "Extract Key Facts",
+    "category": "Memory Maintenance",
+    "response": "• **TTS Preference:** Chris switched from American to British voice, selected bm_george after testing 4 options\n• **Personal:** Chris's daughter Isabel took her first steps today\n• **Gaming:** Chris prefers survivability over damage in W&G character builds\n• **Briefing Settings:** Chris doesn't want weather included in morning briefings\n• **Technical Learning:** Flex CSS overrides hidden attribute; SCP deployment works better than docker cp stdin (corrupts files)\n• **Warhammer Knowledge:** Discussed Mechanicus political power with Chris"
+  },
+  {
+    "id": 8,
+    "name": "Cost Analysis", 
+    "category": "Reasoning",
+    "response": "**Option A - Cloud API (Monthly Cost):**\n\nDaily usage:\n- Input: 50K tokens × $3/1M tokens = $0.15\n- Output: 10K tokens × $15/1M tokens = $0.15\n- Daily total: $0.30\n\nMonthly cost: $0.30 × 30 days = **$9.00**\n\n**Option B - Local Qwen 2.5 32B (Monthly Cost):**\n\nDaily power consumption:\n- Inference (4 hours): 150W × 4 hours = 600Wh = 0.6 kWh\n- Idle (20 hours): 10W × 20 hours = 200Wh = 0.2 kWh\n- Daily total: 0.8 kWh\n\nDaily electricity cost: 0.8 kWh × $0.13/kWh = $0.104\n\nMonthly cost: $0.104 × 30 days = **$3.12**\n\n**Result:**\nLocal Qwen 2.5 32B is **$5.88 cheaper per month** (65% cost savings)\n\n**Cost per year:**\n- Cloud API: $108.00\n- Local GPU: $37.44\n- **Annual savings: $70.56**"
+  },
+  {
+    "id": 9,
+    "name": "Constrained Rewrite",
+    "category": "Instruction Following",
+    "response": "The Adeptus Mechanicus, Mars's Priesthood, serves the Imperium as its technological organization. They worship the Machine God called Omnissiah and maintain advanced Imperial technology. Their forge worlds manufacture weapons from basic lasguns to massive Titan war machines, while tech-priests maintain complex systems essential for Imperial function."
+  },
+  {
+    "id": 10,
+    "name": "Bash Script",
+    "category": "Code Generation",
+    "response": "#!/bin/bash\n\nif [ $# -eq 0 ]; then\n    echo \"Usage: $0 <directory>\"\n    exit 1\nfi\n\nDIR=\"$1\"\n\nif [ ! -d \"$DIR\" ]; then\n    echo \"Error: Directory '$DIR' does not exist\"\n    exit 1\nfi\n\nmd_files=$(find \"$DIR\" -name \"*.md\" -type f 2>/dev/null)\n\nif [ -z \"$md_files\" ]; then\n    echo \"No .md files found in '$DIR'\"\n    exit 0\nfi\n\necho \"WORDS FILE\"\necho \"===== ====\"\n\ntotal_words=0\nwhile IFS= read -r file; do\n    words=$(wc -w < \"$file\" 2>/dev/null || echo 0)\n    total_words=$((total_words + words))\n    printf \"%-5s %s\\n\" \"$words\" \"$file\"\ndone <<< \"$md_files\" | sort -nr\n\necho \"===== ====\"\nprintf \"%-5s %s\\n\" \"$total_words\" \"TOTAL\""
+  },
+  {
+    "id": 11,
+    "name": "Meeting Notes Distillation",
+    "category": "Summarization", 
+    "response": "## Decisions\n- Dashboard redesign: Industrial control panel aesthetic (not startup dashboard)\n- Font: IBM Plex Mono\n- Data refresh: Polling every 30 seconds (not WebSockets)\n- Framework: Keep vanilla JavaScript (no React)\n\n## Action Items\n- **Omni**: Implement new CSS design by end of week\n- **Omni**: Add logout button to dashboard\n- **Chris**: Send reference images of industrial control panels\n- **Chris & Omni**: Test mobile layout once redesign is complete\n\n## Open Questions\n- Should we add disk space alerts? (deferred for later consideration)\n- Mobile layout approach needs more thought"
+  },
+  {
+    "id": 12,
+    "name": "Docker Troubleshooting",
+    "category": "Multi-Step Reasoning", 
+    "response": "**Root Cause:** Network hostname resolution issue.\n\n**Problem Analysis:**\n1. The app is trying to connect to `localhost:5432` (DATABASE_HOST=localhost)\n2. Inside a Docker container, `localhost` refers to the container itself, not the Docker host\n3. PostgreSQL runs in a separate container named 'postgres' on the same network\n4. `pg_isready` succeeds because it's executed inside the postgres container where localhost is correct\n\n**Why This Manifests:**\n- Container networking creates isolated namespaces\n- Each container has its own localhost (127.0.0.1)\n- Cross-container communication requires service names or container names as hostnames\n- The 'app-net' network provides DNS resolution for container names\n\n**Fix:**\nChange the app's configuration:\n```bash\nDATABASE_HOST=postgres\n```\n\n**Alternative Solutions:**\n1. Use container IP: `docker inspect postgres | grep IPAddress`\n2. Use Docker service discovery: `postgres:5432` \n3. Link containers with `--link postgres:db` and use `DATABASE_HOST=db`\n\n**Verification:**\n```bash\ndocker exec <app-container> ping postgres\n```\nThis should resolve successfully if networking is properly configured."
+  }
+]

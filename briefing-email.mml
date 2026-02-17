@@ -1,0 +1,222 @@
+Subject: Omni Daily Briefing — February 16, 2026
+To: cambriel@gmail.com
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omni Daily Briefing — February 16, 2026</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #d4a254 0%, #b8863d 100%);
+            color: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #d4a254;
+        }
+        .section-header {
+            color: #d4a254;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .section-icon {
+            margin-right: 8px;
+            font-size: 20px;
+        }
+        .story {
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        .story:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .story-title {
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+        .story-content {
+            color: #c0c0c0;
+            margin-bottom: 8px;
+        }
+        .story-link {
+            color: #d4a254;
+            text-decoration: none;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .story-link:hover {
+            text-decoration: underline;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            color: #999;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+            .section {
+                padding: 15px;
+            }
+            .section-header {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌅 Omni Daily Briefing</h1>
+        <p style="margin: 5px 0 0 0; font-weight: 500;">February 16, 2026</p>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🤖</span>
+            AI & Tech
+        </div>
+        
+        <div class="story">
+            <div class="story-title">India AI Impact Summit kicks off TODAY</div>
+            <div class="story-content">New Delhi hosts tech's biggest names — Sundar Pichai (Google), Sam Altman (OpenAI), Dario Amodei (Anthropic), Jensen Huang (Nvidia), Bill Gates, and 40+ CEOs attending. India targeting $100B investment commitments over 5 days.</div>
+            <a href="https://timesofindia.indiatimes.com/technology/tech-news/india-ai-impact-summit-2026-sundar-pichai-sam-altman-dario-amodei-and-full-list-of-ceos-attending-the-summit-in-delhi/articleshow/128373872.cms" class="story-link">Times of India</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">Software companies frantically rebranding as "AI companies"</div>
+            <div class="story-content">Stocks plunge 20% in past month, wiping out $2T in market cap. "Sparkles emojis and magic wand icons are everywhere" as companies pivot amid existential crisis.</div>
+            <a href="https://www.nytimes.com/2026/02/14/business/dealbook/software-companies-ai.html" class="story-link">New York Times</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">Elon Musk's Grok gaining US market share</div>
+            <div class="story-content">Up to 17.8% from 14% in December amid ongoing image generation controversies.</div>
+            <a href="https://startupnews.fyi/2026/02/15/elon-musks-ai-chatbot-grok-gains-us-market-share-amid-sexualised-images-backlash-data-shows/" class="story-link">StartupNews.fyi</a>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">⚙️</span>
+            3D Printing
+        </div>
+        
+        <div class="story">
+            <div class="story-title">China breaks 3D printing speed records</div>
+            <div class="story-content">New DISH technology prints millimeter-scale objects in just 0.6 seconds, achieving 333 cubic mm/second rates and 12-micrometer precision. Potential for micro-components and mobile phone camera modules.</div>
+            <a href="https://news.cgtn.com/news/2026-02-13/0-6-second-3D-printing-China-s-new-DISH-tech-shatters-records-1KJoOP49xHW/p.html" class="story-link">CGTN</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">MIT makes aluminum 5x stronger using 3D printing</div>
+            <div class="story-content">Opening new possibilities for aerospace and automotive applications.</div>
+            <a href="https://www.sciencedaily.com/releases/2025/12/251226045316.htm" class="story-link">ScienceDaily</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">3D printed custom batteries now possible</div>
+            <div class="story-content">Filling oddly shaped spaces that would otherwise go to waste.</div>
+            <a href="https://hackaday.com/2026/02/14/theres-always-room-for-3d-printed-batteries/" class="story-link">Hackaday</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">Walmart taps 3D printing for building construction</div>
+            <div class="story-content">Greeley-based Alquist 3D will print over a dozen Walmart buildings using leased A1X printers.</div>
+            <a href="https://hoodline.com/2026/02/greeley-3d-printing-upstart-snags-walmart-building-spree/" class="story-link">Hoodline</a>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">⚔️</span>
+            Warhammer
+        </div>
+        
+        <div class="story">
+            <div class="story-title">New Kill Team Shadowhunt box arrives</div>
+            <div class="story-content">Fresh Sisters of Battle and Chaos Space Marines models, plus separate Dead Silence Kill Team releases.</div>
+            <a href="https://spikeybits.com/games-workshop-new-releases-roadmap-guide/" class="story-link">Spikey Bits</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">Iron Warriors getting massive support</div>
+            <div class="story-content">Eye of Terror supplement coming "in a few months" with new Warsmith Kravek Morne, upgrade sprue, and refreshed Defiler after 20 years.</div>
+            <a href="https://spikeybits.com/games-workshop-new-releases-roadmap-guide/" class="story-link">Spikey Bits</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">Age of Sigmar Winter 2026 releases</div>
+            <div class="story-content">Disciples of Tzeentch and Lumineth Realm-lords both dropping February 21st with new kits and boxed support.</div>
+            <a href="https://spikeybits.com/games-workshop-new-releases-roadmap-guide/" class="story-link">Spikey Bits</a>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🃏</span>
+            Magic: The Gathering
+        </div>
+        
+        <div class="story">
+            <div class="story-title">Major Banned & Restricted shakeup</div>
+            <div class="story-content">Historic format gets massive overhaul with 4 bans (Eldrazi Temple, Ajani Nacatl Pariah, Crop Rotation, Scholar of the Lost Trove) and 7 unbans including Force of Negation and Endurance.</div>
+            <a href="https://magic.wizards.com/en/news/announcements/banned-and-restricted-february-9-2026" class="story-link">Wizards of the Coast</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">Commander Brackets Beta Update released</div>
+            <div class="story-content">Format declared "still going strong" with continued refinements for competitive balance.</div>
+            <a href="https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026" class="story-link">Wizards of the Coast</a>
+        </div>
+
+        <div class="story">
+            <div class="story-title">2026 MTG release schedule confirmed</div>
+            <div class="story-content">Teenage Mutant Ninja Turtles as second set, with Marvel and Star Trek sets also coming this year.</div>
+            <a href="https://articles.starcitygames.com/magic-the-gathering/magic-the-gathering-full-set-release-schedule-for-2026/" class="story-link">Star City Games</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>📧 Daily briefing delivered by Omni</p>
+        <p>Built with love, caffeine, and way too many browser tabs</p>
+    </div>
+</body>
+</html>

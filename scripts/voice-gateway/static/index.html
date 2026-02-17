@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a14">
+    <title>Omni Vox</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Omni Vox</h1>
+            <div class="subtitle">Machine Spirit Interface</div>
+        </div>
+
+        <div id="status" class="status">Initializing...</div>
+
+        <div id="conversation" class="conversation"></div>
+
+        <div class="talk-area">
+            <button id="talk-btn" class="talk-btn">Hold to Talk</button>
+        </div>
+
+        <div class="settings">
+            <label>Output:</label>
+            <select id="speaker-select">
+                <option value="none">Phone speaker</option>
+            </select>
+            <label>Vol:</label>
+            <input id="volume" type="number" value="65" min="0" max="100" style="width:50px">
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
