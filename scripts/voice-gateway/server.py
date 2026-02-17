@@ -72,16 +72,11 @@ async def startup_event():
     
     # Initialize OpenClaw hooks connection
     global hooks_token
-    try:
-        with open("/root/.openclaw/openclaw.json") as f:
-            config = json.load(f)
-        hooks_token = config.get("hooks", {}).get("token")
-        if hooks_token:
-            print("✓ OpenClaw hooks token loaded")
-        else:
-            print("⚠ No hooks token in config")
-    except Exception as e:
-        print(f"⚠ Failed to load OpenClaw config: {e}")
+    hooks_token = os.environ.get("HOOKS_TOKEN")
+    if hooks_token:
+        print("✓ OpenClaw hooks token loaded from env")
+    else:
+        print("⚠ HOOKS_TOKEN env var not set — voice interactions will fail")
     
     # Discover local Sonos speakers
     try:
