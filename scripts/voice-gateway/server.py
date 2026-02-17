@@ -422,6 +422,8 @@ async def voice_interaction(
                 "cacheRead": llm_usage.get("cacheRead", 0),
                 "total": llm_usage.get("totalTokens", 0),
                 "cost": llm_usage.get("cost", {}).get("total", 0),
+                "ttsChars": len(clean_response),
+                "ttsProvider": tts_provider,
             } if llm_usage else None,
         }
     

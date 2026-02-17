@@ -153,6 +153,12 @@ function addMessage(role, text, timing, usage) {
         if (usage.cacheRead) uParts.push(`cache: ${usage.cacheRead.toLocaleString()}`);
         uParts.push(`total: ${usage.total.toLocaleString()}`);
         if (usage.cost) uParts.push(`$${usage.cost.toFixed(4)}`);
+        if (usage.ttsChars) {
+            uParts.push(`tts: ${usage.ttsChars} chars`);
+            if (usage.ttsProvider === 'elevenlabs') {
+                uParts.push(`~$${(usage.ttsChars * 0.0003).toFixed(4)} EL`);
+            }
+        }
         html += `<div class="timing">${uParts.join(' · ')}</div>`;
     }
     
