@@ -147,3 +147,41 @@ The voice note output must NEVER include the echo/quote of Chris's words — onl
 - **ANTHROPIC_API_KEY is OAuth token** — cannot be used for direct API calls; must route through OpenClaw
 - **GEMINI_API_KEY works** for direct Google API calls (backup option)
 - **No prebuilt OpenClaw Android APK** — Talk Mode requires building from source
+
+## Multi-Agent Architecture — Complete
+- **5 agents deployed:** main (Opus), researcher (Haiku), writer (Sonnet), monitor (Haiku), vault-manager (Haiku)
+- **Cross-provider fallbacks:** Anthropic → Gemini → Ollama Qwen for all agents
+- **Monitor agent:** Heartbeat every 30m (8AM-11PM ET), checks email (4h) + server health (2h)
+- **State tracking:** `memory/heartbeat-state.json` for check timestamps
+- **All agents tested:** researcher 11s, writer 11s, vault-manager 7s, monitor 7s spawn times
+- **AGENTS.md updated:** "When spawned as X" role sections for each specialist
+- **HEARTBEAT.md created:** Monitor checklist for periodic tasks
+
+## Sonos Integration — Complete
+- **Bridge architecture:** Python Flask server on Magnus (Windows laptop, office)
+- **Network path:** OpenClaw → SSH to Unraid → curl to Magnus (Tailscale) → Sonos
+- **Speakers confirmed:** Office, Game Room, Workshop (office network); home speakers TBD
+- **Latency:** TTS 96ms + transfer 180ms + bridge 672ms = **~985ms total**
+- **Non-blocking:** v2 bridge returns immediately, background cleanup after playback
+- **Helper scripts:** `scripts/sonos-play.sh`, `scripts/sonos-stop.sh`
+- **GitHub repo:** `cambriel-cpu/sonos-bridge`
+
+## Servo-Skull Project — Planned
+- **STL source:** cults3d.com servo-skull LED lantern (45cm tall)  
+- **Hardware:** Pi 5 (4GB), no soldering required — Chris has never soldered
+- **Cost:** ~$122 total, Chris has ordered parts
+- **Purpose:** Voice-enabled Warhammer rules lookup smart speaker
+- **Project files:** Obsidian `Projects/ServoSkull/` with layout guide, GPIO map, assembly order
+- **Status:** Housing printing, blocked until parts arrive
+
+## LLM Quality Assessment
+- **Qwen 2.5 32B:** GPA 2.81 — good at structured tasks, bad at logic puzzles and exact constraints
+- **Task routing:** Qwen for telemetry/summaries, Sonnet for briefings, Opus for primary chat
+- **Quality tracking:** `telemetry/llm-quality.jsonl` for failure documentation
+- **Cross-model review:** Claude implements → Qwen reviews (catches different blind spots)
+
+## System Health Issues
+- **GPU telemetry failure:** Last entry 2026-02-15T11:01:30Z — cron job failing silently  
+- **Symptoms:** Missing 2+ days of metrics, job shows scheduled but not executing
+- **Impact:** No visibility into VRAM usage, temperature trends, or Ollama model loading
+- **Action needed:** Chris should investigate GPU telemetry cron job configuration

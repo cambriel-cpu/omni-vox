@@ -211,7 +211,7 @@ async def log_to_obsidian(transcript: str, response: str, timing: dict):
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%-I:%M %p")
     
-    note_path = f"Daily/Voice/{date_str}.md"
+    note_path = f"Daily/Voice/Voice-{date_str}.md"
     total = sum(v for k, v in timing.items() if isinstance(v, (int, float)))
     
     entry = (
