@@ -93,6 +93,33 @@ Things like:
 - **NEVER** write directly to CouchDB — LiveSync's chunk format is internal and undocumented
 - For phone to pick up changes: LiveSync Settings → Rebuild → "Fetch from remote"
 
+## Omni Vox (Voice Gateway)
+
+- **Container:** `omni-vox` on Unraid (host networking)
+- **Image:** `omni-vox:v1.0.0`
+- **Port:** 7100
+- **URL (home):** `http://192.168.68.51:7100`
+- **URL (Tailscale):** `http://omnissiah.tail806b98.ts.net:7100`
+- **Source:** `scripts/voice-gateway/` in workspace repo
+- **Config:** `/mnt/user/appdata/omni-vox/.env` on Unraid (chmod 600)
+- **Mounts:**
+  - `/mnt/user/appdata/openclaw/config/agents/main/sessions:/sessions:ro`
+  - `/mnt/user/appdata/openclaw/config/workspace/SOUL.md:/app/SOUL.md:ro`
+- **Restart policy:** `unless-stopped`
+- **Auto-starts:** Yes (Docker restart policy)
+- **Logs:** `ssh omni@192.168.68.51 "docker logs omni-vox"`
+- **Rebuild & redeploy:**
+  ```bash
+  cd /root/.openclaw/workspace/scripts/voice-gateway
+  tar czf /tmp/omni-vox-build.tar.gz --exclude=venv --exclude=__pycache__ --exclude='*.pyc' Dockerfile .dockerignore requirements.txt server.py static/
+  scp -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes /tmp/omni-vox-build.tar.gz omni@192.168.68.51:/tmp/
+  ssh -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes omni@192.168.68.51 "cd /tmp/omni-vox-build && tar xzf /tmp/omni-vox-build.tar.gz && docker build -t omni-vox:v1.0.0 . && docker stop omni-vox && docker rm omni-vox && docker run -d --name omni-vox --network host --restart unless-stopped --env-file /mnt/user/appdata/omni-vox/.env -v /mnt/user/appdata/openclaw/config/agents/main/sessions:/sessions:ro -v /mnt/user/appdata/openclaw/config/workspace/SOUL.md:/app/SOUL.md:ro omni-vox:v1.0.0"
+  ```
+- **Networking note:** Whisper container (192.168.68.100) requires macvlan-shim route on Unraid. Added on 2026-02-17 via privileged Docker container. Route may need re-adding after Unraid reboot:
+  ```bash
+  ssh omni@192.168.68.51 "docker run --rm --privileged --network host alpine ip route add 192.168.68.100 dev macvlan-shim"
+  ```
+
 ## Why Separate?
 
 Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
