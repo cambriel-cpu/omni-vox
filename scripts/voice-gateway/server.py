@@ -27,7 +27,7 @@ WHISPER_MODEL = "deepdml/faster-whisper-large-v3-turbo-ct2"
 KOKORO_URL = os.environ.get("KOKORO_URL", "http://192.168.68.51:8880/v1/audio/speech")
 KOKORO_MODEL = "kokoro"
 KOKORO_VOICE = "bm_george"
-OPENCLAW_GATEWAY = "http://127.0.0.1:18789"
+OPENCLAW_GATEWAY = os.environ.get("OPENCLAW_GATEWAY", "http://127.0.0.1:18789")
 HOOKS_SESSION_KEY = "hook:voice"
 MAGNUS_BRIDGE = "http://100.72.144.77:5111"
 
