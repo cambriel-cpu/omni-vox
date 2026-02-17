@@ -399,21 +399,17 @@ async def play_on_sonos(speaker_name: str, audio_bytes: bytes, volume: Optional[
 
     if not speaker:
         # Try office bridge (Magnus)
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                speaker_encoded = urllib.parse.quote(speaker_name)
-                # Save to temp, send as multipart
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-                    f.write(audio_bytes)
-                    temp_path = f.name
-                try:
-                    # We can't reach Magnus directly from container, would need SSH proxy
-                    # For now, raise so we know it's an office speaker
-                    raise Exception(f"Speaker '{speaker_name}' not found locally. Office bridge not yet wired from gateway.")
-                finally:
-                    Path(temp_path).unlink(missing_ok=True)
-        except Exception:
-            raise
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{MAGNUS_BRIDGE}/play",
+                files={"audio": ("speech.mp3", audio_bytes, "audio/mpeg")},
+                data={"speaker": speaker_name, **({"volume": str(volume)} if volume is not None else {})},
+            )
+            if resp.status_code == 200:
+                print(f"  → Played on office speaker '{speaker_name}' via Magnus bridge")
+                return
+            else:
+                raise Exception(f"Magnus bridge error: {resp.status_code} {resp.text}")
 
     # Local Sonos playback
     original_volume = speaker.volume
@@ -504,8 +500,20 @@ async def discover_sonos():
             "location": "local"
         })
     
-    # Magnus bridge speakers (skipped for now - too complex)
-    # Would need to proxy through SSH to Unraid to Magnus
+    # Office speakers via Magnus bridge
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{MAGNUS_BRIDGE}/speakers")
+            if resp.status_code == 200:
+                bridge_speakers = resp.json()
+                for name, info in bridge_speakers.items():
+                    speakers.append({
+                        "name": info.get("name", name),
+                        "ip": info.get("ip", ""),
+                        "location": "office"
+                    })
+    except Exception as e:
+        print(f"  ⚠ Magnus bridge unreachable: {e}")
     
     return {"speakers": speakers, "count": len(speakers)}
 
