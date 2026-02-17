@@ -115,10 +115,40 @@ Things like:
   scp -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes /tmp/omni-vox-build.tar.gz omni@192.168.68.51:/tmp/
   ssh -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes omni@192.168.68.51 "cd /tmp/omni-vox-build && tar xzf /tmp/omni-vox-build.tar.gz && docker build -t omni-vox:v1.0.0 . && docker stop omni-vox && docker rm omni-vox && docker run -d --name omni-vox --network host --restart unless-stopped --env-file /mnt/user/appdata/omni-vox/.env -v /mnt/user/appdata/openclaw/config/agents/main/sessions:/sessions:ro -v /mnt/user/appdata/openclaw/config/workspace/SOUL.md:/app/SOUL.md:ro omni-vox:v1.0.0"
   ```
-- **Networking note:** Whisper container (192.168.68.100) requires macvlan-shim route on Unraid. Added on 2026-02-17 via privileged Docker container. Route may need re-adding after Unraid reboot:
-  ```bash
-  ssh omni@192.168.68.51 "docker run --rm --privileged --network host alpine ip route add 192.168.68.100 dev macvlan-shim"
-  ```
+- **⚠️ `.env` changes need full recreate** — `docker restart` does NOT re-read `--env-file`. Must `stop + rm + run`.
+- **Networking:** OpenClaw hooks at `192.168.68.99:18789` (macvlan, requires shim route — see below)
+
+## Whisper (STT)
+
+- **Container:** `faster-whisper` on Unraid (host networking)
+- **Image:** `fedirz/faster-whisper-server:latest-cuda`
+- **Port:** 8000
+- **URL:** `http://192.168.68.51:8000`
+- **Model:** `deepdml/faster-whisper-large-v3-turbo-ct2` (CUDA int8)
+- **GPU:** Full GPU passthrough
+- **Cache:** `/mnt/user/appdata/faster-whisper/cache:/root/.cache/:rw`
+- **Restart policy:** `unless-stopped`
+- **Previously:** macvlan at `192.168.68.100` — moved to host networking 2026-02-17
+
+## Macvlan Shim Routes (Non-Persistent)
+
+After any Unraid reboot, the OpenClaw macvlan-shim route must be re-added:
+```bash
+ssh omni@192.168.68.51 "docker run --rm --privileged --network host alpine ip route add 192.168.68.99 dev macvlan-shim"
+```
+**Whisper no longer needs a shim route** (moved to host networking 2026-02-17).
+Consider adding to Unraid User Scripts startup task for persistence.
+
+## Unraid Host Path Mapping (Reference)
+
+OpenClaw container mounts (easy to get wrong):
+| Inside OpenClaw | On Unraid Host |
+|----------------|----------------|
+| `/root/.openclaw/` | `/mnt/user/appdata/openclaw/config/` |
+| `/home/node/clawd` | `/mnt/user/appdata/openclaw/workspace/` |
+| `/projects` | `/mnt/user/appdata/openclaw/projects/` |
+
+**Common mistake:** `/mnt/user/appdata/openclaw/agents/` does NOT exist. Sessions are at `/mnt/user/appdata/openclaw/config/agents/main/sessions/`.
 
 ## Why Separate?
 
