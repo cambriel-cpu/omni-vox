@@ -29,7 +29,7 @@ KOKORO_MODEL = "kokoro"
 KOKORO_VOICE = "bm_george"
 OPENCLAW_GATEWAY = os.environ.get("OPENCLAW_GATEWAY", "http://127.0.0.1:18789")
 HOOKS_SESSION_KEY = "hook:voice"
-MAGNUS_BRIDGE = "http://100.72.144.77:5111"
+MAGNUS_BRIDGE = os.environ.get("MAGNUS_BRIDGE_URL", "http://100.72.144.77:5111")
 
 # Global state
 app = FastAPI(title="Omni Vox", version="1.1.0")
@@ -59,7 +59,7 @@ class VoiceResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Load SOUL.md and discover Sonos speakers at startup"""
-    global system_prompt, local_speakers, gemini_api_key
+    global system_prompt, local_speakers
     
     # Load SOUL.md
     soul_path = Path(os.environ.get("SOUL_PATH", "/root/.openclaw/workspace/SOUL.md"))
@@ -206,7 +206,8 @@ async def log_to_obsidian(transcript: str, response: str, timing: dict):
     """Append voice exchange to daily Obsidian vault transcript"""
     from datetime import datetime, timezone, timedelta
     
-    et = timezone(timedelta(hours=-5))  # EST (close enough)
+    from zoneinfo import ZoneInfo
+    et = ZoneInfo("America/New_York")
     now = datetime.now(et)
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%-I:%M %p")
