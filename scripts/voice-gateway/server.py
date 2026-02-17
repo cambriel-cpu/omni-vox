@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Configuration
-WHISPER_URL = "http://192.168.68.100:8000/v1/audio/transcriptions"
+WHISPER_URL = os.environ.get("WHISPER_URL", "http://192.168.68.100:8000/v1/audio/transcriptions")
 WHISPER_MODEL = "deepdml/faster-whisper-large-v3-turbo-ct2"
 KOKORO_URL = "http://192.168.68.51:8880/v1/audio/speech"
 KOKORO_MODEL = "kokoro"
