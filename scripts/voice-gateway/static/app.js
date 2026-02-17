@@ -12,6 +12,7 @@ const statusEl = document.getElementById('status');
 const convoEl = document.getElementById('conversation');
 const speakerSelect = document.getElementById('speaker-select');
 const volumeInput = document.getElementById('volume');
+const ttsSelect = document.getElementById('tts-select');
 
 // --- Audio Recording ---
 
@@ -74,6 +75,9 @@ async function sendVoice(audioBlob) {
     // Determine extension from mime type
     const ext = audioBlob.type.includes('webm') ? 'webm' : 'mp4';
     formData.append('audio', audioBlob, `voice.${ext}`);
+    
+    // TTS provider
+    formData.append('tts_provider', ttsSelect.value || 'kokoro');
     
     // Sonos routing
     const speaker = speakerSelect.value;
@@ -227,7 +231,37 @@ talkBtn.addEventListener('pointercancel', handleTalkEnd);
 // Prevent context menu on long press
 talkBtn.addEventListener('contextmenu', e => e.preventDefault());
 
-// Discover speakers on load
+// --- TTS Provider Discovery ---
+
+async function discoverTTSProviders() {
+    try {
+        const res = await fetch(`${API}/api/tts/providers`);
+        const data = await res.json();
+        
+        ttsSelect.innerHTML = '';
+        for (const p of data.providers) {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            ttsSelect.appendChild(opt);
+        }
+        
+        // Restore saved preference
+        const saved = localStorage.getItem('omni-vox-tts');
+        if (saved && [...ttsSelect.options].some(o => o.value === saved)) {
+            ttsSelect.value = saved;
+        }
+    } catch (err) {
+        console.error('TTS provider discovery failed:', err);
+    }
+}
+
+ttsSelect.addEventListener('change', () => {
+    localStorage.setItem('omni-vox-tts', ttsSelect.value);
+});
+
+// Discover speakers and TTS providers on load
 discoverSpeakers();
+discoverTTSProviders();
 
 setStatus('', 'Ready — hold to talk');

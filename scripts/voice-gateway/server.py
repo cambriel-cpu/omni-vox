@@ -27,6 +27,8 @@ WHISPER_MODEL = "deepdml/faster-whisper-large-v3-turbo-ct2"
 KOKORO_URL = os.environ.get("KOKORO_URL", "http://192.168.68.51:8880/v1/audio/speech")
 KOKORO_MODEL = "kokoro"
 KOKORO_VOICE = "bm_george"
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "qD2z2CBGpZkjKjCxsv76")
 OPENCLAW_GATEWAY = os.environ.get("OPENCLAW_GATEWAY", "http://127.0.0.1:18789")
 HOOKS_SESSION_KEY = "hook:voice"
 MAGNUS_BRIDGE = os.environ.get("MAGNUS_BRIDGE_URL", "http://100.72.144.77:5111")
@@ -49,6 +51,7 @@ app.add_middleware(
 # Pydantic models
 class TTSRequest(BaseModel):
     text: str
+    tts_provider: str = "kokoro"
 
 class VoiceResponse(BaseModel):
     transcript: str
@@ -276,22 +279,41 @@ async def transcribe(audio: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
+async def generate_tts(text: str, provider: str = "kokoro") -> bytes:
+    """Generate speech audio bytes using the specified TTS provider"""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        if provider == "elevenlabs":
+            if not ELEVENLABS_API_KEY:
+                raise Exception("ELEVENLABS_API_KEY not configured")
+            response = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+                headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
+                json={"text": text, "model_id": "eleven_multilingual_v2"},
+            )
+        else:
+            response = await client.post(
+                KOKORO_URL,
+                json={"model": KOKORO_MODEL, "input": text, "voice": KOKORO_VOICE},
+            )
+        response.raise_for_status()
+        return response.content
+
+
+@app.get("/api/tts/providers")
+async def tts_providers():
+    """List available TTS providers"""
+    providers = [{"id": "kokoro", "name": "Kokoro (Local)"}]
+    if ELEVENLABS_API_KEY:
+        providers.append({"id": "elevenlabs", "name": "ElevenLabs"})
+    return {"providers": providers}
+
+
 @app.post("/api/tts")
 async def text_to_speech(request: TTSRequest):
-    """Generate speech using Kokoro TTS"""
+    """Generate speech using selected TTS provider"""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {
-                "model": KOKORO_MODEL,
-                "input": request.text,
-                "voice": KOKORO_VOICE,
-            }
-            response = await client.post(KOKORO_URL, json=payload)
-            response.raise_for_status()
-            audio_bytes = response.content
-        
+        audio_bytes = await generate_tts(request.text, request.tts_provider)
         return Response(content=audio_bytes, media_type="audio/mpeg")
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
 
@@ -300,6 +322,7 @@ async def voice_interaction(
     audio: UploadFile = File(...),
     sonos_speaker: Optional[str] = Form(None),
     sonos_volume: Optional[int] = Form(None),
+    tts_provider: Optional[str] = Form("kokoro"),
 ):
     """Main voice endpoint - transcribe, chat with Claude, generate TTS, optionally play on Sonos"""
     timing = {}
@@ -339,15 +362,7 @@ async def voice_interaction(
         
         # Step 3: TTS
         start = time.time()
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {
-                "model": KOKORO_MODEL,
-                "input": tts_text,
-                "voice": KOKORO_VOICE,
-            }
-            response = await client.post(KOKORO_URL, json=payload)
-            response.raise_for_status()
-            audio_bytes = response.content
+        audio_bytes = await generate_tts(tts_text, tts_provider or "kokoro")
         timing["tts"] = round(time.time() - start, 2)
         
         # Step 4: Sonos playback (optional)
