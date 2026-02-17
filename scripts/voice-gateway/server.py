@@ -24,7 +24,7 @@ from pydantic import BaseModel
 # Configuration
 WHISPER_URL = os.environ.get("WHISPER_URL", "http://192.168.68.100:8000/v1/audio/transcriptions")
 WHISPER_MODEL = "deepdml/faster-whisper-large-v3-turbo-ct2"
-KOKORO_URL = "http://192.168.68.51:8880/v1/audio/speech"
+KOKORO_URL = os.environ.get("KOKORO_URL", "http://192.168.68.51:8880/v1/audio/speech")
 KOKORO_MODEL = "kokoro"
 KOKORO_VOICE = "bm_george"
 OPENCLAW_GATEWAY = "http://127.0.0.1:18789"
