@@ -164,7 +164,7 @@ async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) 
     # Poll session transcript files for the assistant response
     poll_start = time.time()
     while time.time() - poll_start < timeout:
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(0.3)
         
         # Check all session files for new lines
         for f in sorted(glob.glob(f"{sessions_dir}/*.jsonl"), key=os.path.getmtime, reverse=True)[:5]:
