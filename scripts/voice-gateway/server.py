@@ -107,6 +107,11 @@ async def health_check():
         }
     }
 
+@app.get("/health")
+async def health_check_short():
+    """Short health alias for Docker HEALTHCHECK"""
+    return await health_check()
+
 async def call_openclaw(message: str, timeout: float = 45.0) -> str:
     """Send message to OpenClaw via hooks and poll transcript for response"""
     
