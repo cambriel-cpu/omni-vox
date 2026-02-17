@@ -133,9 +133,16 @@ async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) 
     # Send message via hooks with voice context
     voice_message = f"[Voice conversation from Chris via Omni Vox. Respond naturally and concisely - this will be spoken aloud via TTS. Do NOT use any tools (exec, sonos-play, tts, etc.) — just return text. Audio playback is handled by Omni Vox, not by you. Do NOT echo or quote back what Chris said — the transcript is already displayed in the UI. Just respond directly.]\n\n{message}"
     
+    # Use model-specific session keys so model override takes effect
+    session_key = HOOKS_SESSION_KEY
+    if model:
+        # e.g. "hook:voice:haiku" from "anthropic/claude-haiku-4-5-20251001"
+        short_name = model.split("/")[-1].split("-")[1] if "/" in model else model
+        session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
+    
     hook_payload = {
         "message": voice_message,
-        "sessionKey": HOOKS_SESSION_KEY,
+        "sessionKey": session_key,
         "deliver": False,
     }
     if model:
