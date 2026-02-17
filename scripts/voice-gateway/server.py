@@ -326,6 +326,7 @@ async def voice_interaction(
 ):
     """Main voice endpoint - transcribe, chat with Claude, generate TTS, optionally play on Sonos"""
     timing = {}
+    print(f"  Voice request: tts={tts_provider}, speaker={sonos_speaker}, volume={sonos_volume}")
     
     try:
         # Step 1: Transcribe

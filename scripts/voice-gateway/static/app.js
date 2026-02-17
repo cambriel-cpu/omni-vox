@@ -184,10 +184,15 @@ async function handleTalkEnd(e) {
         // Show response
         addMessage('assistant', result.response, result.timing);
         
-        // Play audio
-        if (result.audio) {
+        // Play audio — skip local playback if Sonos speaker selected
+        const usingSonos = speakerSelect.value && speakerSelect.value !== 'none';
+        if (result.audio && !usingSonos) {
             setStatus('speaking', 'Speaking...');
             await playAudioBase64(result.audio);
+        } else if (usingSonos) {
+            setStatus('speaking', `Playing on ${speakerSelect.value}...`);
+            // Sonos playback is fire-and-forget on the server side
+            await new Promise(r => setTimeout(r, 2000));
         }
         
         setStatus('', 'Ready');
