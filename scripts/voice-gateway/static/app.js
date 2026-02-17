@@ -129,7 +129,7 @@ function setStatus(state, text) {
     if (state === 'speaking') talkBtn.classList.add('speaking');
 }
 
-function addMessage(role, text, timing) {
+function addMessage(role, text, timing, usage) {
     const div = document.createElement('div');
     div.className = `message ${role}`;
     
@@ -137,7 +137,7 @@ function addMessage(role, text, timing) {
     if (timing) {
         const parts = [];
         if (timing.transcribe) parts.push(`stt: ${timing.transcribe}s`);
-        if (timing.claude) parts.push(`llm: ${timing.claude}s`);
+        if (timing.llm) parts.push(`llm: ${timing.llm}s`);
         if (timing.tts) parts.push(`tts: ${timing.tts}s`);
         if (timing.sonos) parts.push(`sonos: ${timing.sonos}s`);
         const total = Object.values(timing)
@@ -145,6 +145,15 @@ function addMessage(role, text, timing) {
             .reduce((a, b) => a + b, 0);
         parts.push(`total: ${total.toFixed(2)}s`);
         html += `<div class="timing">${parts.join(' · ')}</div>`;
+    }
+    if (usage) {
+        const uParts = [];
+        uParts.push(`in: ${usage.input.toLocaleString()}`);
+        uParts.push(`out: ${usage.output.toLocaleString()}`);
+        if (usage.cacheRead) uParts.push(`cache: ${usage.cacheRead.toLocaleString()}`);
+        uParts.push(`total: ${usage.total.toLocaleString()}`);
+        if (usage.cost) uParts.push(`$${usage.cost.toFixed(4)}`);
+        html += `<div class="timing">${uParts.join(' · ')}</div>`;
     }
     
     div.innerHTML = html;
@@ -190,7 +199,7 @@ async function handleTalkEnd(e) {
         addMessage('user', `"${result.transcript}"`);
         
         // Show response
-        addMessage('assistant', result.response, result.timing);
+        addMessage('assistant', result.response, result.timing, result.usage);
         
         // Play audio — skip local playback if Sonos speaker selected
         const usingSonos = speakerSelect.value && speakerSelect.value !== 'none';

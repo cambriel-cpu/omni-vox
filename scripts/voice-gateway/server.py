@@ -201,7 +201,8 @@ async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) 
                     # Skip empty and NO_REPLY
                     if text and text != "NO_REPLY":
                         print(f"  → Got response ({len(text)} chars) from {os.path.basename(f)}")
-                        return text
+                        usage = msg.get("usage", {})
+                        return text, usage
                         
             except IOError:
                 continue
@@ -366,7 +367,7 @@ async def voice_interaction(
         if not hooks_token:
             raise HTTPException(status_code=500, detail="OpenClaw hooks token not configured")
         
-        llm_response = await call_openclaw(transcript, model=llm_model)
+        llm_response, llm_usage = await call_openclaw(transcript, model=llm_model)
         timing["llm"] = round(time.time() - start, 2)
         
         # Clean up response for TTS (strip OpenClaw markup)
@@ -408,6 +409,13 @@ async def voice_interaction(
             "response": clean_response,
             "audio": audio_b64,
             "timing": timing,
+            "usage": {
+                "input": llm_usage.get("input", 0),
+                "output": llm_usage.get("output", 0),
+                "cacheRead": llm_usage.get("cacheRead", 0),
+                "total": llm_usage.get("totalTokens", 0),
+                "cost": llm_usage.get("cost", {}).get("total", 0),
+            } if llm_usage else None,
         }
     
     except HTTPException:
