@@ -1,1 +1,3 @@
 scripts/voice-gateway/venv/
+__pycache__/
+*.pyc

@@ -17,6 +17,12 @@ import httpx
 import soco
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from conversation import ConversationBuffer
+
+
+def _short_model_name(model: str) -> str:
+    """Extract short name from model ID, e.g. 'anthropic/claude-haiku-4-5' -> 'haiku'"""
+    parts = model.split("/")[-1].split("-")
+    return parts[1] if len(parts) > 1 else parts[0]
 from fastapi.responses import Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -136,7 +142,7 @@ async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) 
     session_key = HOOKS_SESSION_KEY
     if model:
         # e.g. "hook:voice:haiku" from "anthropic/claude-haiku-4-5-20251001"
-        short_name = model.split("/")[-1].split("-")[1] if "/" in model else model
+        short_name = _short_model_name(model)
         session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
 
     # Build voice message with conversation context
@@ -424,7 +430,7 @@ async def voice_interaction(
         # Use the same session key logic as call_openclaw
         conv_session_key = HOOKS_SESSION_KEY
         if llm_model:
-            short_name = llm_model.split("/")[-1].split("-")[1] if "/" in llm_model else llm_model
+            short_name = _short_model_name(llm_model)
             conv_session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
         conversation.add_turn(conv_session_key, transcript, clean_response)
         
@@ -608,7 +614,7 @@ async def stop_sonos():
 async def clear_conversation(llm_model: Optional[str] = Form(None)):
     """Clear conversation history for a model session"""
     if llm_model:
-        short_name = llm_model.split("/")[-1].split("-")[1] if "/" in llm_model else llm_model
+        short_name = _short_model_name(llm_model)
         session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
         conversation.clear(session_key)
         return {"cleared": session_key, "status": "ok"}
@@ -621,7 +627,7 @@ async def clear_conversation(llm_model: Optional[str] = Form(None)):
 async def get_conversation_history(llm_model: Optional[str] = None):
     """Get conversation history for a model session"""
     if llm_model:
-        short_name = llm_model.split("/")[-1].split("-")[1] if "/" in llm_model else llm_model
+        short_name = _short_model_name(llm_model)
         session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
     else:
         session_key = HOOKS_SESSION_KEY
