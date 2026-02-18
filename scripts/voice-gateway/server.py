@@ -337,7 +337,7 @@ async def tts_providers():
 
 LLM_MODELS = [
     {"id": "anthropic/claude-opus-4-6", "name": "Claude Opus"},
-    {"id": "anthropic/claude-sonnet-4-5-20250929", "name": "Claude Sonnet"},
+    {"id": "anthropic/claude-sonnet-4-6", "name": "Claude Sonnet"},
     {"id": "anthropic/claude-haiku-4-5-20251001", "name": "Claude Haiku"},
 ]
 
