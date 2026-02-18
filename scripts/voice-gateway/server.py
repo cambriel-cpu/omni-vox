@@ -16,6 +16,7 @@ from typing import Optional
 import httpx
 import soco
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from conversation import ConversationBuffer
 from fastapi.responses import Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +39,7 @@ app = FastAPI(title="Omni Vox", version="1.1.0")
 system_prompt = ""
 local_speakers = []
 hooks_token = None
+conversation = ConversationBuffer(max_turns=20)
 
 # CORS - allow all origins for now
 app.add_middleware(
@@ -130,15 +132,22 @@ async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) 
         except IOError:
             pass
     
-    # Send message via hooks with voice context
-    voice_message = f"[Voice conversation from Chris via Omni Vox. Respond naturally and concisely - this will be spoken aloud via TTS. Do NOT use any tools (exec, sonos-play, tts, etc.) — just return text. Audio playback is handled by Omni Vox, not by you. Do NOT echo or quote back what Chris said — the transcript is already displayed in the UI. Just respond directly.]\n\n{message}"
-    
     # Use model-specific session keys so model override takes effect
     session_key = HOOKS_SESSION_KEY
     if model:
         # e.g. "hook:voice:haiku" from "anthropic/claude-haiku-4-5-20251001"
         short_name = model.split("/")[-1].split("-")[1] if "/" in model else model
         session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
+
+    # Build voice message with conversation context
+    voice_prefix = "[Voice conversation from Chris via Omni Vox. Respond naturally and concisely - this will be spoken aloud via TTS. Do NOT use any tools (exec, sonos-play, tts, etc.) — just return text. Audio playback is handled by Omni Vox, not by you. Do NOT echo or quote back what Chris said — the transcript is already displayed in the UI. Just respond directly.]"
+    
+    # Inject conversation history if available
+    history_context = conversation.format_context(session_key)
+    if history_context:
+        voice_message = f"{voice_prefix}\n\n{history_context}\n\nChris: {message}"
+    else:
+        voice_message = f"{voice_prefix}\n\n{message}"
     
     hook_payload = {
         "message": voice_message,
@@ -410,6 +419,14 @@ async def voice_interaction(
             await log_to_obsidian(transcript, clean_response, timing)
         except Exception as e:
             print(f"  ⚠ Obsidian log failed: {e}")
+        
+        # Store turn in conversation buffer for multi-turn context
+        # Use the same session key logic as call_openclaw
+        conv_session_key = HOOKS_SESSION_KEY
+        if llm_model:
+            short_name = llm_model.split("/")[-1].split("-")[1] if "/" in llm_model else llm_model
+            conv_session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
+        conversation.add_turn(conv_session_key, transcript, clean_response)
         
         return {
             "transcript": transcript,
