@@ -603,6 +603,36 @@ async def stop_sonos():
     
     return {"stopped": stopped, "count": len(stopped)}
 
+@app.post("/api/voice/clear")
+async def clear_conversation(llm_model: Optional[str] = Form(None)):
+    """Clear conversation history for a model session"""
+    if llm_model:
+        short_name = llm_model.split("/")[-1].split("-")[1] if "/" in llm_model else llm_model
+        session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
+        conversation.clear(session_key)
+        return {"cleared": session_key, "status": "ok"}
+    else:
+        conversation.clear()
+        return {"cleared": "all", "status": "ok"}
+
+
+@app.get("/api/voice/history")
+async def get_conversation_history(llm_model: Optional[str] = None):
+    """Get conversation history for a model session"""
+    if llm_model:
+        short_name = llm_model.split("/")[-1].split("-")[1] if "/" in llm_model else llm_model
+        session_key = f"{HOOKS_SESSION_KEY}:{short_name}"
+    else:
+        session_key = HOOKS_SESSION_KEY
+    
+    turns = conversation.get_history(session_key)
+    return {
+        "session_key": session_key,
+        "turns": [{"user": t.user, "assistant": t.assistant, "timestamp": t.timestamp} for t in turns],
+        "count": len(turns),
+    }
+
+
 # Mount static files last
 static_path = Path(__file__).parent / "static"
 static_path.mkdir(exist_ok=True)
