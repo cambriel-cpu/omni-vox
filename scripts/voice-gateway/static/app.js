@@ -323,4 +323,34 @@ discoverSpeakers();
 discoverTTSProviders();
 discoverLLMModels();
 
+// --- New Chat ---
+
+const newChatBtn = document.getElementById('new-chat-btn');
+
+newChatBtn.addEventListener('click', async () => {
+    try {
+        const formData = new FormData();
+        if (llmSelect.value) {
+            formData.append('llm_model', llmSelect.value);
+        }
+        
+        const res = await fetch(`${API}/api/voice/clear`, {
+            method: 'POST',
+            body: formData,
+        });
+        
+        if (res.ok) {
+            // Add visual separator
+            const sep = document.createElement('div');
+            sep.className = 'separator';
+            sep.textContent = '— new conversation —';
+            convoEl.appendChild(sep);
+            convoEl.scrollTop = convoEl.scrollHeight;
+            setStatus('', 'New conversation started');
+        }
+    } catch (err) {
+        console.error('Failed to clear conversation:', err);
+    }
+});
+
 setStatus('', 'Ready — hold to talk');

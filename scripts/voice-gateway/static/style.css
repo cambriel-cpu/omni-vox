@@ -207,3 +207,32 @@ html, body {
 .conversation::-webkit-scrollbar { width: 4px; }
 .conversation::-webkit-scrollbar-track { background: var(--bg-primary); }
 .conversation::-webkit-scrollbar-thumb { background: var(--amber-dim); border-radius: 2px; }
+
+.new-chat-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #ccc;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.new-chat-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+.header {
+    position: relative;
+}
+.conversation .separator {
+    text-align: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 0.8em;
+    padding: 8px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin: 8px 0;
+}
