@@ -433,6 +433,7 @@ async def voice_interaction(
             "response": clean_response,
             "audio": audio_b64,
             "timing": timing,
+            "turnCount": conversation.turn_count(conv_session_key),
             "usage": {
                 "input": llm_usage.get("input", 0),
                 "output": llm_usage.get("output", 0),

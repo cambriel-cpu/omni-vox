@@ -207,6 +207,12 @@ async function handleTalkEnd(e) {
         // Show response
         addMessage('assistant', result.response, result.timing, result.usage);
         
+        // Update turn counter
+        if (result.turnCount !== undefined) {
+            document.getElementById('turn-count').textContent = 
+                result.turnCount > 0 ? `${result.turnCount} turn${result.turnCount !== 1 ? 's' : ''} in conversation` : '';
+        }
+        
         // Play audio — skip local playback if Sonos speaker selected
         const usingSonos = speakerSelect.value && speakerSelect.value !== 'none';
         if (result.audio && !usingSonos) {
@@ -340,6 +346,7 @@ newChatBtn.addEventListener('click', async () => {
         });
         
         if (res.ok) {
+            document.getElementById('turn-count').textContent = '';
             // Add visual separator
             const sep = document.createElement('div');
             sep.className = 'separator';
