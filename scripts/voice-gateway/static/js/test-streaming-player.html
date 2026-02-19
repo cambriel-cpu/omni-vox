@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streaming Audio Player Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .control { margin: 10px 0; }
+        .status { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; }
+        .metrics { font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Streaming Audio Player Test</h1>
+    
+    <div class="control">
+        <button id="initButton">Initialize Audio Context</button>
+        <span id="contextStatus">Not initialized</span>
+    </div>
+    
+    <div class="control">
+        <button id="testStreamingBtn">Test Streaming Playback</button>
+        <button id="stopBtn" disabled>Stop</button>
+    </div>
+    
+    <div class="status">
+        <div>Status: <span id="status">Ready</span></div>
+        <div class="metrics">
+            <div>Session: <span id="sessionInfo">None</span></div>
+            <div>Chunks: <span id="chunkInfo">0 received, 0 played</span></div>
+            <div>Scheduled: <span id="scheduledInfo">0</span></div>
+        </div>
+    </div>
+    
+    <script src="streaming-audio-player.js"></script>
+    <script>
+        const player = new StreamingAudioPlayer();
+        
+        // UI elements
+        const initBtn = document.getElementById('initButton');
+        const testBtn = document.getElementById('testStreamingBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const contextStatus = document.getElementById('contextStatus');
+        const status = document.getElementById('status');
+        const sessionInfo = document.getElementById('sessionInfo');
+        const chunkInfo = document.getElementById('chunkInfo');
+        const scheduledInfo = document.getElementById('scheduledInfo');
+        
+        // Event handlers
+        player.onAudioStart = (sessionId) => {
+            status.textContent = 'Streaming';
+            testBtn.disabled = true;
+            stopBtn.disabled = false;
+        };
+        
+        player.onAudioEnd = (sessionId) => {
+            status.textContent = 'Complete';
+            testBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+        
+        player.onAudioStop = () => {
+            status.textContent = 'Stopped';
+            testBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+        
+        player.onError = (error) => {
+            status.textContent = `Error: ${error}`;
+            testBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+        
+        // Update UI periodically
+        setInterval(() => {
+            const info = player.getPlaybackInfo();
+            sessionInfo.textContent = info.sessionId || 'None';
+            chunkInfo.textContent = `${info.metrics.chunksReceived} received, ${info.metrics.chunksPlayed} played`;
+            scheduledInfo.textContent = info.scheduledChunks.toString();
+        }, 100);
+        
+        // Button handlers
+        initBtn.onclick = async () => {
+            const success = await player.initialize();
+            contextStatus.textContent = success ? 'Ready' : 'Failed';
+            initBtn.disabled = success;
+            testBtn.disabled = !success;
+        };
+        
+        testBtn.onclick = async () => {
+            // Simulate streaming audio chunks
+            player.startAudioSession('test-' + Date.now());
+            
+            // Generate some test audio chunks (silence)
+            const sampleRate = 44100;
+            const chunkDuration = 0.1; // 100ms chunks
+            const samplesPerChunk = Math.floor(sampleRate * chunkDuration);
+            
+            for (let i = 0; i < 30; i++) { // 3 seconds of audio
+                setTimeout(() => {
+                    // Create silent audio chunk
+                    const buffer = player.audioContext.createBuffer(1, samplesPerChunk, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Add a tiny beep every second for testing
+                    if (i % 10 === 0) {
+                        for (let j = 0; j < samplesPerChunk; j++) {
+                            data[j] = Math.sin(2 * Math.PI * 440 * j / sampleRate) * 0.1;
+                        }
+                    }
+                    
+                    // Convert to ArrayBuffer (simulate WebSocket binary data)
+                    const arrayBuffer = new ArrayBuffer(buffer.length * 4);
+                    const float32View = new Float32Array(arrayBuffer);
+                    for (let j = 0; j < buffer.length; j++) {
+                        float32View[j] = data[j];
+                    }
+                    
+                    player.addAudioChunk(arrayBuffer);
+                    
+                    // End session after last chunk
+                    if (i === 29) {
+                        setTimeout(() => player.endAudioSession(player.currentSessionId), 100);
+                    }
+                }, i * 50); // 50ms intervals (faster than real-time for testing)
+            }
+        };
+        
+        stopBtn.onclick = () => player.stopAudio();
+    </script>
+</body>
+</html>
