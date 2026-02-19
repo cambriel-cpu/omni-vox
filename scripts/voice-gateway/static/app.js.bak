@@ -6,11 +6,6 @@ let audioChunks = [];
 let isRecording = false;
 let audioContext = null;
 
-// WebSocket streaming variables
-let streamingAudioPlayer = null;
-let wsClient = null;
-let streamingMode = true; // Default to streaming
-
 // DOM elements
 const talkBtn = document.getElementById('talk-btn');
 const statusEl = document.getElementById('status');
@@ -19,85 +14,6 @@ const speakerSelect = document.getElementById('speaker-select');
 const volumeInput = document.getElementById('volume');
 const ttsSelect = document.getElementById('tts-select');
 const llmSelect = document.getElementById('llm-select');
-
-// --- WebSocket Streaming Mode ---
-
-async function initializeWebSocketMode() {
-    if (streamingAudioPlayer && wsClient) return; // Already initialized
-    
-    try {
-        // Initialize streaming audio player
-        streamingAudioPlayer = new StreamingAudioPlayer();
-        const audioReady = await streamingAudioPlayer.initialize();
-        
-        if (!audioReady) {
-            console.warn('Web Audio API not available, falling back to HTTP mode');
-            streamingMode = false;
-            updateStatus('Web Audio API unavailable - using HTTP mode');
-            return;
-        }
-        
-        // Initialize WebSocket client
-        wsClient = new OmniVoxWebSocketClient(streamingAudioPlayer);
-        
-        // Setup event handlers
-        wsClient.onConnect = () => {
-            updateStatus('WebSocket connected - streaming mode active');
-            updateConnectionIndicator(true);
-        };
-        
-        wsClient.onDisconnect = () => {
-            updateStatus('WebSocket disconnected - check connection');
-            updateConnectionIndicator(false);
-        };
-        
-        wsClient.onError = (error) => {
-            updateStatus(`WebSocket error: ${error}`);
-            console.error('WebSocket error:', error);
-        };
-        
-        wsClient.onTranscript = (text) => {
-            updateStatus(`You said: "${text}"`);
-        };
-        
-        wsClient.onResponseText = (text) => {
-            updateStatus(`Omni: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
-        };
-        
-        wsClient.onAudioStart = () => {
-            updateInterruptButton(true);
-            setStatus('speaking', 'Streaming audio...');
-        };
-        
-        wsClient.onAudioEnd = () => {
-            updateInterruptButton(false);
-            setStatus('', 'Ready');
-            updateStatus('Ready for next message');
-        };
-        
-        wsClient.onAudioCancelled = () => {
-            updateInterruptButton(false);
-            setStatus('', 'Ready');
-            updateStatus('Audio interrupted');
-        };
-        
-        // Connect WebSocket
-        await wsClient.connect();
-        
-    } catch (error) {
-        console.error('Failed to initialize WebSocket mode:', error);
-        streamingMode = false;
-        updateStatus('Streaming mode unavailable, using HTTP fallback');
-    }
-}
-
-function updateStatus(text) {
-    // Helper function to update status without changing the main status element
-    const statusText = document.getElementById('status-text');
-    if (statusText) {
-        statusText.textContent = text;
-    }
-}
 
 // --- Audio Recording ---
 
@@ -189,67 +105,6 @@ async function sendVoice(audioBlob) {
     }
     
     return response.json();
-}
-
-// --- WebSocket vs HTTP Processing ---
-
-async function processRecordingWebSocket(audioBlob) {
-    if (!wsClient || !wsClient.isConnected) {
-        throw new Error('WebSocket not connected');
-    }
-    
-    try {
-        // Convert audio blob to base64
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        
-        // Send via WebSocket
-        await wsClient.sendVoiceRequest(base64Audio);
-        
-        updateStatus("Processing voice (streaming)...");
-        
-    } catch (error) {
-        console.error('WebSocket voice processing error:', error);
-        throw error;
-    }
-}
-
-async function processRecordingHTTP(audioBlob) {
-    updateStatus("Processing voice (HTTP mode)...");
-    
-    try {
-        const result = await sendVoice(audioBlob);
-        
-        // Show transcript
-        addMessage('user', `"${result.transcript}"`);
-        
-        // Show response
-        addMessage('assistant', result.response, result.timing, result.usage);
-        
-        // Update turn counter
-        if (result.turnCount !== undefined) {
-            document.getElementById('turn-count').textContent = 
-                result.turnCount > 0 ? `${result.turnCount} turn${result.turnCount !== 1 ? 's' : ''} in conversation` : '';
-        }
-        
-        // Play audio — skip local playback if Sonos speaker selected
-        const usingSonos = speakerSelect.value && speakerSelect.value !== 'none';
-        if (result.audio && !usingSonos) {
-            setStatus('speaking', 'Speaking...');
-            await playAudioBase64(result.audio);
-        } else if (usingSonos) {
-            const speakerName = speakerSelect.value.split('|')[0];
-            setStatus('speaking', `Playing on ${speakerName}...`);
-            // Sonos playback is fire-and-forget on the server side
-            await new Promise(r => setTimeout(r, 2000));
-        }
-        
-        return result;
-        
-    } catch (error) {
-        console.error('HTTP processing error:', error);
-        throw error;
-    }
 }
 
 // --- Audio Playback ---
@@ -344,34 +199,37 @@ async function handleTalkEnd(e) {
     setStatus('thinking', 'Processing...');
     
     try {
-        if (streamingMode && wsClient && wsClient.isConnected) {
-            await processRecordingWebSocket(audioBlob);
-            // WebSocket mode - UI updates handled by event callbacks
-        } else {
-            // HTTP fallback mode
-            await processRecordingHTTP(audioBlob);
-            setStatus('', 'Ready');
+        const result = await sendVoice(audioBlob);
+        
+        // Show transcript
+        addMessage('user', `"${result.transcript}"`);
+        
+        // Show response
+        addMessage('assistant', result.response, result.timing, result.usage);
+        
+        // Update turn counter
+        if (result.turnCount !== undefined) {
+            document.getElementById('turn-count').textContent = 
+                result.turnCount > 0 ? `${result.turnCount} turn${result.turnCount !== 1 ? 's' : ''} in conversation` : '';
         }
+        
+        // Play audio — skip local playback if Sonos speaker selected
+        const usingSonos = speakerSelect.value && speakerSelect.value !== 'none';
+        if (result.audio && !usingSonos) {
+            setStatus('speaking', 'Speaking...');
+            await playAudioBase64(result.audio);
+        } else if (usingSonos) {
+            const speakerName = speakerSelect.value.split('|')[0];
+            setStatus('speaking', `Playing on ${speakerName}...`);
+            // Sonos playback is fire-and-forget on the server side
+            await new Promise(r => setTimeout(r, 2000));
+        }
+        
+        setStatus('', 'Ready');
     } catch (err) {
-        console.error('Recording processing failed:', err);
         setStatus('error', err.message);
         addMessage('assistant', `⚠ Error: ${err.message}`);
-        
-        // Try fallback if WebSocket failed
-        if (streamingMode && err.message.includes('WebSocket')) {
-            console.log('Trying HTTP fallback...');
-            try {
-                await processRecordingHTTP(audioBlob);
-                setStatus('', 'Ready');
-                updateStatus('Fallback to HTTP mode successful');
-            } catch (fallbackError) {
-                console.error('Fallback also failed:', fallbackError);
-                updateStatus(`Both streaming and HTTP failed: ${fallbackError.message}`);
-                setTimeout(() => setStatus('', 'Ready'), 3000);
-            }
-        } else {
-            setTimeout(() => setStatus('', 'Ready'), 3000);
-        }
+        setTimeout(() => setStatus('', 'Ready'), 3000);
     } finally {
         talkBtn.disabled = false;
     }
@@ -394,115 +252,6 @@ async function discoverSpeakers() {
         }
     } catch (err) {
         console.error('Speaker discovery failed:', err);
-    }
-}
-
-// --- Streaming UI Controls ---
-
-function addStreamingControls() {
-    const controlsDiv = document.querySelector('.controls') || document.body;
-    
-    // Connection status indicator
-    const statusDiv = document.createElement('div');
-    statusDiv.innerHTML = `
-        <div class="connection-status">
-            <span id="connectionIndicator" class="indicator disconnected">●</span>
-            <span id="connectionText">Connecting...</span>
-        </div>
-        
-        <div class="streaming-controls">
-            <label>
-                <input type="checkbox" id="streamingModeToggle" ${streamingMode ? 'checked' : ''}> 
-                Streaming Mode
-            </label>
-            <button id="interruptButton" disabled>⏹️ Stop Audio</button>
-        </div>
-        
-        <div id="status-text" class="status-text"></div>
-    `;
-    controlsDiv.appendChild(statusDiv);
-    
-    // Add CSS
-    const style = document.createElement('style');
-    style.textContent = `
-        .connection-status {
-            margin: 10px 0;
-            padding: 5px;
-            background: #f0f0f0;
-            border-radius: 3px;
-            font-size: 14px;
-        }
-        
-        .indicator {
-            font-size: 12px;
-            margin-right: 5px;
-        }
-        
-        .indicator.connected { color: #00ff00; }
-        .indicator.connecting { color: #ffaa00; }
-        .indicator.disconnected { color: #ff0000; }
-        
-        .streaming-controls {
-            margin: 10px 0;
-        }
-        
-        .streaming-controls label {
-            margin-right: 10px;
-        }
-        
-        .status-text {
-            margin: 5px 0;
-            font-style: italic;
-            color: #666;
-            min-height: 1.2em;
-        }
-        
-        #interruptButton:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // Event handlers
-    document.getElementById('streamingModeToggle').onchange = (e) => {
-        streamingMode = e.target.checked;
-        updateStatus(streamingMode ? 'Streaming mode enabled' : 'HTTP mode enabled');
-    };
-    
-    document.getElementById('interruptButton').onclick = async () => {
-        if (wsClient && wsClient.isConnected) {
-            try {
-                await wsClient.cancelAudio();
-            } catch (error) {
-                console.error('Failed to cancel audio:', error);
-            }
-        }
-        
-        if (streamingAudioPlayer) {
-            streamingAudioPlayer.stopAudio();
-        }
-    };
-}
-
-function updateConnectionIndicator(connected) {
-    const indicator = document.getElementById('connectionIndicator');
-    const text = document.getElementById('connectionText');
-    
-    if (connected) {
-        indicator.className = 'indicator connected';
-        text.textContent = 'Connected (Streaming)';
-    } else {
-        indicator.className = 'indicator disconnected';
-        text.textContent = 'Disconnected (HTTP fallback)';
-    }
-}
-
-function updateInterruptButton(enabled) {
-    const button = document.getElementById('interruptButton');
-    if (button) {
-        button.disabled = !enabled;
-        button.textContent = enabled ? '⏹️ Stop Audio' : '⏸️ No Audio';
     }
 }
 
@@ -575,19 +324,10 @@ llmSelect.addEventListener('change', () => {
     localStorage.setItem('omni-vox-llm', llmSelect.value);
 });
 
-// Initialize WebSocket streaming mode and UI
-async function initializeApp() {
-    addStreamingControls();
-    await initializeWebSocketMode();
-}
-
 // Discover speakers, TTS providers, and LLM models on load
 discoverSpeakers();
 discoverTTSProviders();
 discoverLLMModels();
-
-// Initialize streaming mode when DOM is ready
-window.addEventListener('DOMContentLoaded', initializeApp);
 
 // --- New Chat ---
 
