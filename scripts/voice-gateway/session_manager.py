@@ -58,18 +58,6 @@ class SessionManager:
             self.session_locks.pop(session_id, None)
             logger.info(f"Removed session {session_id}")
     
-    def get_active_session(self, session_id: str) -> Optional[VoiceSession]:
-        """Get active session if it exists"""
-        return self.active_sessions.get(session_id)
-    
-    def cancel_session(self, session_id: str) -> bool:
-        """Cancel a specific session"""
-        session = self.active_sessions.get(session_id)
-        if session:
-            session.cancel()
-            return True
-        return False
-    
     def get_session_count(self) -> int:
-        """Get number of active sessions"""
+        """Get the number of active sessions"""
         return len(self.active_sessions)

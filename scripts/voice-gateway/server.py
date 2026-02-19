@@ -10,12 +10,17 @@ import asyncio
 import base64
 import glob
 import tempfile
+import uuid
+import logging
 from pathlib import Path
 from typing import Optional
 
 import httpx
 import soco
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, WebSocket, WebSocketDisconnect
+from validation import MessageValidator, ValidationError
+from session_manager import SessionManager, VoiceSession
+from audio_streamer import AudioStreamer
 from conversation import ConversationBuffer
 
 
@@ -28,10 +33,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Configuration
 WHISPER_URL = os.environ.get("WHISPER_URL", "http://192.168.68.100:8000/v1/audio/transcriptions")
 WHISPER_MODEL = "deepdml/faster-whisper-large-v3-turbo-ct2"
 KOKORO_URL = os.environ.get("KOKORO_URL", "http://192.168.68.51:8880/v1/audio/speech")
+KOKORO_BASE_URL = os.environ.get("KOKORO_BASE_URL", "http://192.168.68.51:8880")
 KOKORO_MODEL = "kokoro"
 KOKORO_VOICE = "bm_george"
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
@@ -46,6 +56,13 @@ system_prompt = ""
 local_speakers = []
 hooks_token = None
 conversation = ConversationBuffer(max_turns=20)
+
+# WebSocket components
+message_validator = MessageValidator()
+session_manager = SessionManager()
+audio_streamer = AudioStreamer(
+    kokoro_base_url=KOKORO_BASE_URL
+)
 
 # CORS - allow all origins for now
 app.add_middleware(
@@ -101,6 +118,113 @@ async def startup_event():
     except Exception as e:
         print(f"⚠ Error discovering Sonos speakers: {e}")
         local_speakers = []
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Production WebSocket endpoint with security and session management"""
+    await websocket.accept()
+    
+    # Generate session ID
+    session_id = str(uuid.uuid4())
+    
+    try:
+        async with session_manager.get_session(session_id, websocket) as session:
+            logger.info(f"WebSocket connected: {session_id}")
+            
+            while True:
+                try:
+                    # Receive message with timeout
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                    
+                    # Validate message
+                    try:
+                        message = message_validator.validate_raw_message(data, session_id)
+                    except ValidationError as e:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": str(e)
+                        })
+                        continue
+                    
+                    # Handle different message types
+                    await handle_message(message, session)
+                    
+                except asyncio.TimeoutError:
+                    # Send keepalive ping
+                    await websocket.send_json({"type": "ping"})
+                    
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected: {session_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error for session {session_id}: {e}")
+
+async def handle_message(message: dict, session: VoiceSession):
+    """Handle validated WebSocket messages"""
+    message_type = message.get("type")
+    
+    if message_type == "ping":
+        await session.websocket.send_json({"type": "pong"})
+        
+    elif message_type == "voice_request":
+        # Process voice input
+        audio_data = message.get("audio_data", "")
+        if audio_data:
+            # For now, echo back - TODO: integrate with OpenClaw hooks
+            await session.websocket.send_json({
+                "type": "transcript", 
+                "session_id": session.session_id,
+                "text": "Mock transcript from voice data"  # TODO: Replace with real STT
+            })
+            
+            # Mock response - TODO: integrate with OpenClaw
+            response_text = "Mock response to voice input"
+            
+            await session.websocket.send_json({
+                "type": "response_text",
+                "session_id": session.session_id, 
+                "text": response_text
+            })
+            
+            # Stream TTS audio
+            await audio_streamer.stream_tts_audio(response_text, session)
+        else:
+            await session.websocket.send_json({
+                "type": "error",
+                "message": "No audio data provided"
+            })
+            
+    elif message_type == "stream_tts":
+        # Direct TTS streaming
+        text = message.get("text", "")
+        if text:
+            await audio_streamer.stream_tts_audio(text, session)
+        else:
+            await session.websocket.send_json({
+                "type": "error",
+                "message": "No text provided"
+            })
+            
+    elif message_type == "cancel":
+        # Cancel current operations
+        session.cancel()
+        await session.websocket.send_json({
+            "type": "cancelled",
+            "session_id": session.session_id
+        })
+        
+    else:
+        await session.websocket.send_json({
+            "type": "error",
+            "message": f"Unknown message type: {message_type}"
+        })
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "active_sessions": session_manager.get_session_count()
+    }
 
 @app.get("/api/health")
 async def health_check():
