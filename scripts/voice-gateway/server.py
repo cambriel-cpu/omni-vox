@@ -416,7 +416,7 @@ async def websocket_metrics():
 async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) -> str:
     """Send message to OpenClaw via hooks and poll transcript for response"""
     
-    sessions_dir = os.environ.get("SESSIONS_DIR", "/root/.openclaw/agents/main/sessions")
+    sessions_dir = os.environ.get("SESSIONS_DIR", "/sessions")
     send_time = time.time()
     
     # Record line counts of all existing session files before sending
