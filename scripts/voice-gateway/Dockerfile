@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY server.py .
 COPY conversation.py .
+COPY validation.py .
+COPY session_manager.py .
+COPY audio_streamer.py .
 COPY static/ ./static/
 
 # Health check — curl isn't in slim, use python

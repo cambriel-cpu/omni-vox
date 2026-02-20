@@ -44,16 +44,15 @@ class MessageValidator:
         if not isinstance(message, dict):
             raise ValidationError("Message must be an object")
         
-        # Audio data size check (do this first for voice requests)
+        # Audio data size check (for voice requests)
         if message.get("type") == "voice_request":
             audio_data = message.get("audio_data", "")
             if len(audio_data) > self.max_audio_size:
                 raise ValidationError("Audio data too large")
-        else:
-            # For non-audio messages, check overall size limit
-            serialized_message = json.dumps(message)
-            if len(serialized_message) > self.max_message_size:
-                raise ValidationError("Message too large")
+        
+        # Text length validation
+        if "text" in message and len(message["text"]) > 10000:
+            raise ValidationError("Text too long")
         
         return message
     

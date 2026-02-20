@@ -22,6 +22,7 @@ from validation import MessageValidator, ValidationError
 from session_manager import SessionManager, VoiceSession
 from audio_streamer import AudioStreamer
 from conversation import ConversationBuffer
+from metrics import metrics, start_metrics_server
 
 
 def _short_model_name(model: str) -> str:
@@ -52,6 +53,17 @@ MAGNUS_BRIDGE = os.environ.get("MAGNUS_BRIDGE_URL", "http://100.72.144.77:5111")
 
 # Global state
 app = FastAPI(title="Omni Vox", version="1.1.0")
+
+# Start metrics server on startup
+startup_time = time.time()
+
+@app.on_event("startup")
+async def startup_event():
+    global startup_time
+    startup_time = time.time()
+    metrics_port = int(os.getenv("METRICS_PORT", "9090"))
+    start_metrics_server(metrics_port)
+    logger.info("OmniVox WebSocket server started")
 system_prompt = ""
 local_speakers = []
 hooks_token = None
@@ -123,6 +135,7 @@ async def startup_event():
 async def websocket_endpoint(websocket: WebSocket):
     """Production WebSocket endpoint with security and session management"""
     await websocket.accept()
+    metrics.websocket_connected()
     
     # Generate session ID
     session_id = str(uuid.uuid4())
@@ -139,11 +152,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     # Validate message
                     try:
                         message = message_validator.validate_raw_message(data, session_id)
+                        metrics.message_received(message.get("type", "unknown"))
                     except ValidationError as e:
+                        metrics.validation_failed(str(e)[:20])  # Truncate error type
                         await websocket.send_json({
                             "type": "error",
                             "message": str(e)
                         })
+                        metrics.message_sent("error")
                         continue
                     
                     # Handle different message types
@@ -152,11 +168,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 except asyncio.TimeoutError:
                     # Send keepalive ping
                     await websocket.send_json({"type": "ping"})
+                    metrics.message_sent("ping")
                     
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected: {session_id}")
+        logger.info(f"WebSocket disconnected normally: {session_id}")
+        metrics.websocket_disconnected("normal")
     except Exception as e:
         logger.error(f"WebSocket error for session {session_id}: {e}")
+        metrics.websocket_disconnected("error")
 
 async def handle_message(message: dict, session: VoiceSession):
     """Handle validated WebSocket messages"""
@@ -164,6 +183,7 @@ async def handle_message(message: dict, session: VoiceSession):
     
     if message_type == "ping":
         await session.websocket.send_json({"type": "pong"})
+        metrics.message_sent("pong")
         
     elif message_type == "voice_request":
         # Process voice input
@@ -175,6 +195,7 @@ async def handle_message(message: dict, session: VoiceSession):
                 "session_id": session.session_id,
                 "text": "Mock transcript from voice data"  # TODO: Replace with real STT
             })
+            metrics.message_sent("transcript")
             
             # Mock response - TODO: integrate with OpenClaw
             response_text = "Mock response to voice input"
@@ -184,14 +205,16 @@ async def handle_message(message: dict, session: VoiceSession):
                 "session_id": session.session_id, 
                 "text": response_text
             })
+            metrics.message_sent("response_text")
             
-            # Stream TTS audio
+            # Stream TTS audio (metrics handled in audio_streamer)
             await audio_streamer.stream_tts_audio(response_text, session)
         else:
             await session.websocket.send_json({
                 "type": "error",
                 "message": "No audio data provided"
             })
+            metrics.message_sent("error")
             
     elif message_type == "stream_tts":
         # Direct TTS streaming
@@ -203,6 +226,7 @@ async def handle_message(message: dict, session: VoiceSession):
                 "type": "error",
                 "message": "No text provided"
             })
+            metrics.message_sent("error")
             
     elif message_type == "cancel":
         # Cancel current operations
@@ -211,41 +235,146 @@ async def handle_message(message: dict, session: VoiceSession):
             "type": "cancelled",
             "session_id": session.session_id
         })
+        metrics.message_sent("cancelled")
         
     else:
         await session.websocket.send_json({
             "type": "error",
             "message": f"Unknown message type: {message_type}"
         })
+        metrics.message_sent("error")
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
+    """Comprehensive health check with dependency validation"""
+    health_status = {
         "status": "healthy",
-        "active_sessions": session_manager.get_session_count()
-    }
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint - returns service status and speaker count"""
-    return {
-        "status": "healthy",
-        "services": {
-            "whisper": WHISPER_URL,
-            "kokoro": KOKORO_URL,
-            "llm": "openclaw-hooks" if hooks_token else "missing hooks token",
-            "sonos_local": len(local_speakers),
-        },
-        "speakers": {
-            "local": [{"name": s.player_name, "ip": s.ip_address} for s in local_speakers],
+        "timestamp": time.time(),
+        "version": "2.0.0-websocket-streaming",
+        "active_sessions": session_manager.get_session_count(),
+        "dependencies": {},
+        "metrics": {
+            "websocket_connections": len(session_manager.active_sessions),
+            "total_connections": session_manager.get_session_count(),
+            "audio_streams_active": len(metrics.audio_stream_start_times),
         }
     }
+    
+    overall_healthy = True
+    
+    # Check Kokoro TTS
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            kokoro_health = await client.get(f"{KOKORO_BASE_URL}/health")
+            health_status["dependencies"]["kokoro"] = {
+                "status": "healthy" if kokoro_health.status_code == 200 else "unhealthy",
+                "url": KOKORO_BASE_URL,
+                "response_time_ms": kokoro_health.elapsed.total_seconds() * 1000
+            }
+    except Exception as e:
+        health_status["dependencies"]["kokoro"] = {
+            "status": "unhealthy", 
+            "url": KOKORO_BASE_URL,
+            "error": str(e)
+        }
+        overall_healthy = False
+    
+    # Check Whisper STT  
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            whisper_health = await client.get(f"{WHISPER_URL.replace('/v1/audio/transcriptions', '/health')}")
+            health_status["dependencies"]["whisper"] = {
+                "status": "healthy" if whisper_health.status_code == 200 else "unhealthy",
+                "url": WHISPER_URL,
+                "response_time_ms": whisper_health.elapsed.total_seconds() * 1000
+            }
+    except Exception as e:
+        health_status["dependencies"]["whisper"] = {
+            "status": "unhealthy",
+            "url": WHISPER_URL, 
+            "error": str(e)
+        }
+        overall_healthy = False
+    
+    # Check OpenClaw Gateway
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            gateway_health = await client.get(f"{OPENCLAW_GATEWAY}/health")
+            health_status["dependencies"]["openclaw_gateway"] = {
+                "status": "healthy" if gateway_health.status_code == 200 else "unhealthy",
+                "url": OPENCLAW_GATEWAY,
+                "response_time_ms": gateway_health.elapsed.total_seconds() * 1000
+            }
+    except Exception as e:
+        health_status["dependencies"]["openclaw_gateway"] = {
+            "status": "degraded",  # Not critical for WebSocket streaming
+            "url": OPENCLAW_GATEWAY,
+            "error": str(e)
+        }
+    
+    # Check local Sonos speakers
+    health_status["dependencies"]["sonos_local"] = {
+        "status": "healthy",
+        "count": len(local_speakers),
+        "speakers": [{"name": s.player_name, "ip": s.ip_address} for s in local_speakers]
+    }
+    
+    # Overall status
+    if not overall_healthy:
+        health_status["status"] = "degraded"
+    
+    # Return appropriate HTTP status
+    status_code = 200 if overall_healthy else 503
+    return JSONResponse(content=health_status, status_code=status_code)
 
-@app.get("/health")
-async def health_check_short():
-    """Short health alias for Docker HEALTHCHECK"""
-    return await health_check()
+@app.get("/health/ready")
+async def readiness_check():
+    """Kubernetes-style readiness probe - checks if service can accept traffic"""
+    ready = True
+    checks = {}
+    
+    # WebSocket server must be able to accept connections
+    checks["websocket_server"] = {"ready": True}
+    
+    # Audio streaming dependencies must be available
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            kokoro_check = await client.get(f"{KOKORO_BASE_URL}/health")
+            checks["kokoro_tts"] = {
+                "ready": kokoro_check.status_code == 200,
+                "status_code": kokoro_check.status_code
+            }
+            if kokoro_check.status_code != 200:
+                ready = False
+    except Exception as e:
+        checks["kokoro_tts"] = {"ready": False, "error": str(e)}
+        ready = False
+    
+    result = {
+        "ready": ready,
+        "checks": checks,
+        "timestamp": time.time()
+    }
+    
+    return JSONResponse(content=result, status_code=200 if ready else 503)
+
+@app.get("/health/live")
+async def liveness_check():
+    """Kubernetes-style liveness probe - checks if service is alive"""
+    return {
+        "alive": True,
+        "timestamp": time.time(),
+        "uptime_seconds": time.time() - startup_time if 'startup_time' in globals() else 0
+    }
+
+@app.get("/metrics/websocket")
+async def websocket_metrics():
+    """WebSocket-specific metrics for monitoring"""
+    return {
+        "active_sessions": session_manager.get_session_count(),
+        "audio_streams_active": len(metrics.audio_stream_start_times),
+        "timestamp": time.time()
+    }
 
 async def call_openclaw(message: str, timeout: float = 45.0, model: str = None) -> str:
     """Send message to OpenClaw via hooks and poll transcript for response"""

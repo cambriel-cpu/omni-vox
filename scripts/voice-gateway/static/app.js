@@ -23,22 +23,11 @@ const llmSelect = document.getElementById('llm-select');
 // --- WebSocket Streaming Mode ---
 
 async function initializeWebSocketMode() {
-    if (streamingAudioPlayer && wsClient) return; // Already initialized
+    if (wsClient) return; // Already initialized
     
     try {
-        // Initialize streaming audio player
-        streamingAudioPlayer = new StreamingAudioPlayer();
-        const audioReady = await streamingAudioPlayer.initialize();
-        
-        if (!audioReady) {
-            console.warn('Web Audio API not available, falling back to HTTP mode');
-            streamingMode = false;
-            updateStatus('Web Audio API unavailable - using HTTP mode');
-            return;
-        }
-        
-        // Initialize WebSocket client
-        wsClient = new OmniVoxWebSocketClient(streamingAudioPlayer);
+        // Initialize WebSocket client first (doesn't require AudioContext)
+        wsClient = new OmniVoxWebSocketClient(null); // Pass null for now, we'll set it later
         
         // Setup event handlers
         wsClient.onConnect = () => {
@@ -81,14 +70,56 @@ async function initializeWebSocketMode() {
             updateStatus('Audio interrupted');
         };
         
-        // Connect WebSocket
+        // Connect WebSocket (this doesn't require AudioContext)
         await wsClient.connect();
+        
+        // Try to initialize audio components (this may fail on page load)
+        await initializeAudioComponents();
         
     } catch (error) {
         console.error('Failed to initialize WebSocket mode:', error);
-        streamingMode = false;
-        updateStatus('Streaming mode unavailable, using HTTP fallback');
+        updateStatus('WebSocket connection failed, using HTTP fallback');
     }
+}
+
+async function initializeAudioComponents() {
+    try {
+        if (!streamingAudioPlayer) {
+            // Initialize streaming audio player
+            streamingAudioPlayer = new StreamingAudioPlayer();
+            const audioReady = await streamingAudioPlayer.initialize();
+            
+            if (audioReady) {
+                // Link audio player to WebSocket client
+                if (wsClient) {
+                    wsClient.audioPlayer = streamingAudioPlayer;
+                }
+                updateStatus('Audio streaming ready');
+                return true;
+            } else {
+                console.warn('Web Audio API not available - will initialize after user gesture');
+                updateStatus('WebSocket connected - audio will initialize after first interaction');
+                return false;
+            }
+        }
+        return true;
+    } catch (error) {
+        console.warn('Audio initialization failed:', error);
+        updateStatus('WebSocket connected - audio initialization failed, will retry after user gesture');
+        return false;
+    }
+}
+
+async function ensureAudioReady() {
+    // Try to initialize audio if not already done (after user gesture)
+    if (!streamingAudioPlayer || !streamingAudioPlayer.audioContext) {
+        const audioReady = await initializeAudioComponents();
+        if (!audioReady) {
+            console.warn('Audio still not available, using HTTP fallback for this request');
+            return false;
+        }
+    }
+    return true;
 }
 
 function updateStatus(text) {
@@ -318,6 +349,15 @@ async function handleTalkStart(e) {
     e.preventDefault();
     if (talkBtn.disabled) return;
     
+    // Initialize audio components after first user gesture if needed
+    if (wsClient && wsClient.isConnected && (!streamingAudioPlayer || !streamingAudioPlayer.audioContext)) {
+        try {
+            await initializeAudioComponents();
+        } catch (error) {
+            console.warn('Audio initialization after user gesture failed:', error);
+        }
+    }
+    
     if (!mediaRecorder) {
         try {
             await initMediaRecorder();
@@ -344,11 +384,20 @@ async function handleTalkEnd(e) {
     setStatus('thinking', 'Processing...');
     
     try {
+        // Check if WebSocket streaming is available and enabled
         if (streamingMode && wsClient && wsClient.isConnected) {
+            // Ensure audio is ready for streaming (may initialize after user gesture)
+            await ensureAudioReady();
+            
+            // Process via WebSocket
             await processRecordingWebSocket(audioBlob);
             // WebSocket mode - UI updates handled by event callbacks
         } else {
             // HTTP fallback mode
+            const reason = !streamingMode ? 'streaming disabled' : 
+                          !wsClient ? 'WebSocket not initialized' :
+                          !wsClient.isConnected ? 'WebSocket not connected' : 'unknown';
+            console.log(`Using HTTP mode: ${reason}`);
             await processRecordingHTTP(audioBlob);
             setStatus('', 'Ready');
         }

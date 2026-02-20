@@ -128,6 +128,13 @@ class OmniVoxWebSocketClient {
                 this.onError?.(message.message);
                 break;
                 
+            case 'ping':
+                // Send pong response for keepalive
+                this.sendMessage({ type: 'pong' }).catch(err => 
+                    console.error('Failed to send pong:', err)
+                );
+                break;
+                
             case 'pong':
                 // Keepalive response
                 break;
