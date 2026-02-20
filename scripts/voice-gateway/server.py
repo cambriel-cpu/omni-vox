@@ -39,7 +39,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-WHISPER_URL = os.environ.get("WHISPER_URL", "http://192.168.68.100:8000/v1/audio/transcriptions")
+WHISPER_URL = os.environ.get("WHISPER_URL", "http://192.168.68.51:8000/v1/audio/transcriptions")
 WHISPER_MODEL = "deepdml/faster-whisper-large-v3-turbo-ct2"
 KOKORO_URL = os.environ.get("KOKORO_URL", "http://192.168.68.51:8880/v1/audio/speech")
 KOKORO_BASE_URL = os.environ.get("KOKORO_BASE_URL", "http://192.168.68.51:8880")
