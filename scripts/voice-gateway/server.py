@@ -226,7 +226,32 @@ async def handle_message(message: dict, session: VoiceSession):
                     metrics.message_sent("error")
                     return
                 
-                llm_response, _ = await call_openclaw(transcript)
+                # Use direct sessions_send API instead of file polling
+                # This bypasses the broken session file polling mechanism
+                try:
+                    import httpx
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        sessions_resp = await client.post(
+                            f"{OPENCLAW_GATEWAY}/api/sessions/send",
+                            headers={"Authorization": f"Bearer {hooks_token}", "Content-Type": "application/json"},
+                            json={
+                                "sessionKey": "hook:voice", 
+                                "message": f"[Voice from Chris via OmniVox - respond concisely for TTS] {transcript}",
+                                "timeoutSeconds": 30
+                            }
+                        )
+                        sessions_resp.raise_for_status()
+                        result = sessions_resp.json()
+                        
+                        if result.get("status") == "ok":
+                            llm_response = result.get("reply", "No response received")
+                        else:
+                            raise Exception(f"Sessions API error: {result.get('error', 'Unknown error')}")
+                        
+                except Exception as api_error:
+                    # Fallback to original call_openclaw if sessions API fails
+                    print(f"  Sessions API failed: {api_error}, falling back to file polling")
+                    llm_response, _ = await call_openclaw(transcript)
                 
                 # Send response text to client
                 await session.websocket.send_json({
