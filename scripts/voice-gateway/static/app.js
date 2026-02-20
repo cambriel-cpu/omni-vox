@@ -264,9 +264,16 @@ async function processRecordingWebSocket(audioBlob) {
     }
     
     try {
-        // Convert audio blob to base64
+        // Convert audio blob to base64 (safe for large files)
         const arrayBuffer = await audioBlob.arrayBuffer();
-        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.slice(i, i + chunkSize);
+            binary += String.fromCharCode(...chunk);
+        }
+        const base64Audio = btoa(binary);
         
         // Send via WebSocket
         await wsClient.sendVoiceRequest(base64Audio);
