@@ -5,6 +5,7 @@ let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 let audioContext = null;
+let currentMediaStream = null;
 
 // WebSocket streaming variables
 let streamingAudioPlayer = null;
@@ -141,6 +142,9 @@ async function initMediaRecorder() {
         } 
     });
     
+    // Store stream reference for cleanup
+    currentMediaStream = stream;
+    
     // Try webm first, fall back to whatever's supported
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
         ? 'audio/webm;codecs=opus'
@@ -155,6 +159,23 @@ async function initMediaRecorder() {
     };
     
     return mediaRecorder;
+}
+
+function cleanupMediaStream() {
+    /**Clean up MediaStream tracks to release microphone*/
+    if (currentMediaStream) {
+        currentMediaStream.getTracks().forEach(track => {
+            track.stop();
+            console.log('Cleaned up media track:', track.kind);
+        });
+        currentMediaStream = null;
+    }
+    if (mediaRecorder) {
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+        mediaRecorder = null;
+    }
 }
 
 function startRecording() {
@@ -177,6 +198,19 @@ function stopRecording() {
             audioChunks = [];
             isRecording = false;
             talkBtn.classList.remove('active');
+            
+            // Clean up MediaStream tracks to stop microphone access
+            if (currentMediaStream) {
+                currentMediaStream.getTracks().forEach(track => {
+                    track.stop();
+                    console.log('Stopped media track:', track.kind);
+                });
+                currentMediaStream = null;
+            }
+            
+            // Clean up MediaRecorder
+            mediaRecorder = null;
+            
             resolve(blob);
         };
         mediaRecorder.stop();
@@ -670,3 +704,7 @@ newChatBtn.addEventListener('click', async () => {
 });
 
 setStatus('', 'Ready — hold to talk');
+
+// Cleanup microphone when page unloads
+window.addEventListener('beforeunload', cleanupMediaStream);
+window.addEventListener('unload', cleanupMediaStream);
