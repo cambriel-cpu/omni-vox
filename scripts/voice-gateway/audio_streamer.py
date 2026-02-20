@@ -40,7 +40,8 @@ class AudioStreamer:
                 metrics.audio_stream_started(session.session_id)
                 
                 # Stream TTS response
-                async with client.post(
+                async with client.stream(
+                    "POST",
                     f"{self.kokoro_base_url}/v1/audio/speech",
                     json={
                         "model": "kokoro",

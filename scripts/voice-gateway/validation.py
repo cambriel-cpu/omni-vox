@@ -11,7 +11,7 @@ class ValidationError(Exception):
     pass
 
 class MessageValidator:
-    def __init__(self, max_message_size=10*1024, max_audio_size=5*1024*1024, 
+    def __init__(self, max_message_size=1024*1024, max_audio_size=5*1024*1024, 
                  max_requests=10, rate_window=60):
         self.max_message_size = max_message_size
         self.max_audio_size = max_audio_size

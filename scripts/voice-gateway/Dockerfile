@@ -12,6 +12,7 @@ COPY conversation.py .
 COPY validation.py .
 COPY session_manager.py .
 COPY audio_streamer.py .
+COPY metrics.py .
 COPY static/ ./static/
 
 # Health check — curl isn't in slim, use python
