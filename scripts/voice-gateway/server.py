@@ -186,29 +186,66 @@ async def handle_message(message: dict, session: VoiceSession):
         metrics.message_sent("pong")
         
     elif message_type == "voice_request":
-        # Process voice input
+        # Process voice input with real STT + LLM + TTS pipeline
         audio_data = message.get("audio_data", "")
         if audio_data:
-            # For now, echo back - TODO: integrate with OpenClaw hooks
-            await session.websocket.send_json({
-                "type": "transcript", 
-                "session_id": session.session_id,
-                "text": "Mock transcript from voice data"  # TODO: Replace with real STT
-            })
-            metrics.message_sent("transcript")
-            
-            # Mock response - TODO: integrate with OpenClaw
-            response_text = "Mock response to voice input"
-            
-            await session.websocket.send_json({
-                "type": "response_text",
-                "session_id": session.session_id, 
-                "text": response_text
-            })
-            metrics.message_sent("response_text")
-            
-            # Stream TTS audio (metrics handled in audio_streamer)
-            await audio_streamer.stream_tts_audio(response_text, session)
+            try:
+                # Step 1: Real STT transcription 
+                start_time = time.time()
+                audio_bytes = base64.b64decode(audio_data)
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    files = {"file": ("audio.wav", audio_bytes, "audio/wav")}
+                    data = {"model": WHISPER_MODEL}
+                    response = await client.post(WHISPER_URL, files=files, data=data)
+                    response.raise_for_status()
+                    transcript = response.json().get("text", "")
+                
+                if not transcript:
+                    await session.websocket.send_json({
+                        "type": "error",
+                        "message": "No transcript generated"
+                    })
+                    metrics.message_sent("error")
+                    return
+                
+                # Send transcript to client
+                await session.websocket.send_json({
+                    "type": "transcript", 
+                    "session_id": session.session_id,
+                    "text": transcript
+                })
+                metrics.message_sent("transcript")
+                
+                # Step 2: Real LLM processing via OpenClaw hooks
+                if not hooks_token:
+                    await session.websocket.send_json({
+                        "type": "error",
+                        "message": "OpenClaw hooks not configured"
+                    })
+                    metrics.message_sent("error")
+                    return
+                
+                llm_response, _ = await call_openclaw(transcript)
+                
+                # Send response text to client
+                await session.websocket.send_json({
+                    "type": "response_text",
+                    "session_id": session.session_id, 
+                    "text": llm_response
+                })
+                metrics.message_sent("response_text")
+                
+                # Step 3: Stream real TTS audio
+                await audio_streamer.stream_tts_audio(llm_response, session)
+                
+            except Exception as e:
+                logger.error(f"Voice processing error: {e}")
+                await session.websocket.send_json({
+                    "type": "error",
+                    "message": f"Voice processing failed: {str(e)}"
+                })
+                metrics.message_sent("error")
         else:
             await session.websocket.send_json({
                 "type": "error",
