@@ -229,7 +229,6 @@ async def handle_message(message: dict, session: VoiceSession):
                 # Use direct sessions_send API instead of file polling
                 # This bypasses the broken session file polling mechanism
                 try:
-                    import httpx
                     async with httpx.AsyncClient(timeout=30.0) as client:
                         sessions_resp = await client.post(
                             f"{OPENCLAW_GATEWAY}/api/sessions/send",
