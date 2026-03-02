@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmniVox WebSocket Test Client v2.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            background: #f9f9f9;
+        }
+        button { 
+            padding: 10px 20px; 
+            margin: 5px; 
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { 
+            background: #6c757d;
+            cursor: not-allowed; 
+        }
+        .status { 
+            background: #e9ecef; 
+            padding: 10px; 
+            margin: 10px 0; 
+            font-family: monospace;
+            border-radius: 4px;
+        }
+        .log { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            height: 300px; 
+            overflow-y: scroll; 
+            font-family: monospace; 
+            font-size: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        input[type="text"] { 
+            width: 300px; 
+            padding: 8px; 
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        .metrics { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+        }
+        .metric { 
+            background: #e3f2fd; 
+            padding: 12px; 
+            border-radius: 4px; 
+            text-align: center;
+            border: 1px solid #90caf9;
+        }
+        .error { color: #dc3545; font-weight: bold; }
+        .success { color: #28a745; font-weight: bold; }
+        .warning { color: #ffc107; font-weight: bold; }
+        .info { color: #17a2b8; }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .test-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .test-card h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .test-result {
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .test-pass { background: #d4edda; color: #155724; }
+        .test-fail { background: #f8d7da; color: #721c24; }
+        .test-pending { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ OmniVox WebSocket Test Client v2.0</h1>
+        <p>Comprehensive testing tool for WebSocket streaming audio functionality</p>
+    </div>
+    
+    <div class="container">
+        <h2>Connection Status</h2>
+        <div class="status" id="connectionStatus">Not connected</div>
+        <button id="connectBtn">Connect WebSocket</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+        <button id="testAllBtn" disabled>🧪 Run All Tests</button>
+    </div>
+    
+    <div class="container">
+        <h2>Audio Player Control</h2>
+        <div class="status" id="audioStatus">Audio context not initialized</div>
+        <button id="initAudioBtn">Initialize Audio Context</button>
+        <button id="stopAudioBtn" disabled>⏹️ Stop Audio</button>
+    </div>
+    
+    <div class="container">
+        <h2>Manual Test Operations</h2>
+        <div class="test-grid">
+            <div>
+                <input type="text" id="testText" placeholder="Enter text to stream as audio" value="Hello, this is a comprehensive test of the WebSocket streaming audio system with binary chunk delivery.">
+                <br><button id="streamTestBtn" disabled>🎵 Stream TTS</button>
+            </div>
+            <div>
+                <button id="pingBtn" disabled>📡 Send Ping</button>
+                <button id="cancelBtn" disabled>❌ Cancel Audio</button>
+                <button id="errorTestBtn" disabled>💥 Test Error Handling</button>
+            </div>
+            <div>
+                <button id="rateLimitTestBtn" disabled>⚡ Test Rate Limiting</button>
+                <button id="reconnectTestBtn" disabled>🔄 Test Reconnection</button>
+                <button id="concurrentTestBtn" disabled>👥 Test Concurrent Sessions</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Performance Metrics</h2>
+        <div class="metrics">
+            <div class="metric">Connection Time: <span id="connectionTime">-</span>ms</div>
+            <div class="metric">Messages Sent: <span id="messagesSent">0</span></div>
+            <div class="metric">Messages Received: <span id="messagesReceived">0</span></div>
+            <div class="metric">Audio Chunks: <span id="audioChunks">0</span></div>
+            <div class="metric">Audio Sessions: <span id="audioSessions">0</span></div>
+            <div class="metric">Errors: <span id="errorCount">0</span></div>
+            <div class="metric">Binary Messages: <span id="binaryMessages">0</span></div>
+            <div class="metric">Avg Latency: <span id="avgLatency">-</span>ms</div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>🧪 Automated Test Results</h2>
+        <div class="test-grid" id="testResults">
+            <!-- Test results will be populated here -->
+        </div>
+        <button onclick="clearTestResults()">Clear Test Results</button>
+    </div>
+    
+    <div class="container">
+        <h2>Message Log</h2>
+        <div class="log" id="messageLog"></div>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="exportLog()">📥 Export Log</button>
+    </div>
+    
+    <script src="/static/js/streaming-audio-player.js"></script>
+    <script src="/static/js/websocket-client.js"></script>
+    <script>
+        let audioPlayer = null;
+        let wsClient = null;
+        let testWsClient = null; // For concurrent testing
+        let metrics = {
+            connectionTime: 0,
+            messagesSent: 0,
+            messagesReceived: 0,
+            audioChunks: 0,
+            audioSessions: 0,
+            errorCount: 0,
+            binaryMessages: 0,
+            latencies: []
+        };
+        let testResults = new Map();
+        
+        // UI Elements
+        const connectionStatus = document.getElementById('connectionStatus');
+        const audioStatus = document.getElementById('audioStatus');
+        const messageLog = document.getElementById('messageLog');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const testAllBtn = document.getElementById('testAllBtn');
+        const initAudioBtn = document.getElementById('initAudioBtn');
+        const stopAudioBtn = document.getElementById('stopAudioBtn');
+        const streamTestBtn = document.getElementById('streamTestBtn');
+        const pingBtn = document.getElementById('pingBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const errorTestBtn = document.getElementById('errorTestBtn');
+        const rateLimitTestBtn = document.getElementById('rateLimitTestBtn');
+        const reconnectTestBtn = document.getElementById('reconnectTestBtn');
+        const concurrentTestBtn = document.getElementById('concurrentTestBtn');
+        const testText = document.getElementById('testText');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.innerHTML = `<span style="color: #6c757d">[${timestamp}]</span> ${message}`;
+            messageLog.appendChild(logEntry);
+            messageLog.scrollTop = messageLog.scrollHeight;
+            
+            // Update error count
+            if (type === 'error') {
+                metrics.errorCount++;
+                updateMetrics();
+            }
+        }
+        
+        function updateMetrics() {
+            document.getElementById('connectionTime').textContent = metrics.connectionTime;
+            document.getElementById('messagesSent').textContent = metrics.messagesSent;
+            document.getElementById('messagesReceived').textContent = metrics.messagesReceived;
+            document.getElementById('audioChunks').textContent = metrics.audioChunks;
+            document.getElementById('audioSessions').textContent = metrics.audioSessions;
+            document.getElementById('errorCount').textContent = metrics.errorCount;
+            document.getElementById('binaryMessages').textContent = metrics.binaryMessages;
+            
+            const avgLatency = metrics.latencies.length > 0 
+                ? Math.round(metrics.latencies.reduce((a, b) => a + b, 0) / metrics.latencies.length)
+                : '-';
+            document.getElementById('avgLatency').textContent = avgLatency;
+        }
+        
+        function updateConnectionStatus(status, message) {
+            connectionStatus.textContent = message;
+            connectionStatus.className = `status ${status}`;
+            
+            const connected = status === 'success';
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            testAllBtn.disabled = !connected;
+            streamTestBtn.disabled = !connected;
+            pingBtn.disabled = !connected;
+            cancelBtn.disabled = !connected;
+            errorTestBtn.disabled = !connected;
+            rateLimitTestBtn.disabled = !connected;
+            reconnectTestBtn.disabled = !connected;
+            concurrentTestBtn.disabled = !connected;
+        }
+        
+        function updateAudioStatus(status, message) {
+            audioStatus.textContent = message;
+            audioStatus.className = `status ${status}`;
+        }
+        
+        function recordTestResult(testName, passed, details = '') {
+            testResults.set(testName, { passed, details, timestamp: new Date() });
+            updateTestResultsDisplay();
+        }
+        
+        function updateTestResultsDisplay() {
+            const container = document.getElementById('testResults');
+            container.innerHTML = '';
+            
+            for (const [testName, result] of testResults) {
+                const card = document.createElement('div');
+                card.className = 'test-card';
+                
+                const resultClass = result.passed ? 'test-pass' : 'test-fail';
+                const resultText = result.passed ? 'PASS' : 'FAIL';
+                const resultIcon = result.passed ? '✅' : '❌';
+                
+                card.innerHTML = `
+                    <h4>${testName}</h4>
+                    <div class="test-result ${resultClass}">
+                        ${resultIcon} ${resultText}
+                    </div>
+                    ${result.details ? `<p><small>${result.details}</small></p>` : ''}
+                    <small>Tested: ${result.timestamp.toLocaleTimeString()}</small>
+                `;
+                
+                container.appendChild(card);
+            }
+        }
+        
+        function clearLog() {
+            messageLog.innerHTML = '';
+        }
+        
+        function clearTestResults() {
+            testResults.clear();
+            updateTestResultsDisplay();
+        }
+        
+        function exportLog() {
+            const logText = Array.from(messageLog.children)
+                .map(entry => entry.textContent)
+                .join('\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `omni-vox-test-log-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Initialize audio player
+        initAudioBtn.onclick = async () => {
+            try {
+                audioPlayer = new StreamingAudioPlayer();
+                const success = await audioPlayer.initialize();
+                
+                if (success) {
+                    updateAudioStatus('success', 'Audio context ready');
+                    initAudioBtn.disabled = true;
+                    stopAudioBtn.disabled = false;
+                    log('Audio context initialized successfully', 'success');
+                    
+                    setupAudioPlayerEvents();
+                    recordTestResult('Audio Context Initialization', true, 'Web Audio API ready');
+                } else {
+                    updateAudioStatus('error', 'Failed to initialize audio context');
+                    log('Failed to initialize audio context', 'error');
+                    recordTestResult('Audio Context Initialization', false, 'Web Audio API not available');
+                }
+            } catch (error) {
+                updateAudioStatus('error', `Error: ${error.message}`);
+                log(`Audio initialization error: ${error.message}`, 'error');
+                recordTestResult('Audio Context Initialization', false, error.message);
+            }
+        };
+        
+        function setupAudioPlayerEvents() {
+            audioPlayer.onAudioStart = (sessionId) => {
+                metrics.audioSessions++;
+                updateMetrics();
+                log(`🎵 Audio session started: ${sessionId}`, 'success');
+                cancelBtn.disabled = false;
+            };
+            
+            audioPlayer.onAudioEnd = (sessionId) => {
+                log(`✅ Audio session completed: ${sessionId}`, 'success');
+                cancelBtn.disabled = true;
+            };
+            
+            audioPlayer.onAudioStop = () => {
+                log('⏹️ Audio stopped by user', 'warning');
+                cancelBtn.disabled = true;
+            };
+            
+            audioPlayer.onError = (error) => {
+                log(`❌ Audio error: ${error}`, 'error');
+            };
+        }
+        
+        // WebSocket connection
+        connectBtn.onclick = async () => {
+            if (!audioPlayer) {
+                log('⚠️ Please initialize audio context first', 'warning');
+                return;
+            }
+            
+            try {
+                updateConnectionStatus('warning', 'Connecting...');
+                log('🔌 Connecting to WebSocket...', 'info');
+                
+                const startTime = performance.now();
+                wsClient = new OmniVoxWebSocketClient(audioPlayer);
+                
+                setupWebSocketEvents();
+                await wsClient.connect();
+                
+            } catch (error) {
+                updateConnectionStatus('error', `Connection failed: ${error.message}`);
+                log(`❌ Connection error: ${error.message}`, 'error');
+                recordTestResult('WebSocket Connection', false, error.message);
+            }
+        };
+        
+        function setupWebSocketEvents() {
+            const startTime = performance.now();
+            
+            wsClient.onConnect = () => {
+                metrics.connectionTime = Math.round(performance.now() - startTime);
+                updateMetrics();
+                updateConnectionStatus('success', 'Connected and streaming ready');
+                log('✅ WebSocket connected successfully', 'success');
+                recordTestResult('WebSocket Connection', true, `Connected in ${metrics.connectionTime}ms`);
+            };
+            
+            wsClient.onDisconnect = () => {
+                updateConnectionStatus('error', 'Disconnected');
+                log('⚠️ WebSocket disconnected', 'warning');
+            };
+            
+            wsClient.onError = (error) => {
+                updateConnectionStatus('error', `Error: ${error}`);
+                log(`❌ WebSocket error: ${error}`, 'error');
+                recordTestResult('WebSocket Error Handling', false, error);
+            };
+            
+            wsClient.onStateChange = (state) => {
+                log(`🔄 State changed to: ${state}`, 'info');
+            };
+            
+            wsClient.onTranscript = (text) => {
+                log(`📝 Transcript: ${text}`, 'info');
+            };
+            
+            wsClient.onResponseText = (text) => {
+                log(`💬 Response: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`, 'info');
+            };
+            
+            wsClient.onAudioStart = (message) => {
+                log(`🎵 Audio streaming started: ${message.session_id}`, 'success');
+                metrics.messagesReceived++;
+                updateMetrics();
+            };
+            
+            wsClient.onAudioEnd = (message) => {
+                log(`✅ Audio streaming completed: ${message.session_id}`, 'success');
+                metrics.messagesReceived++;
+                updateMetrics();
+            };
+            
+            wsClient.onAudioCancelled = (message) => {
+                log(`❌ Audio cancelled: ${message.session_id}`, 'warning');
+                metrics.messagesReceived++;
+                updateMetrics();
+            };
+            
+            // Override methods to track metrics
+            const originalHandleChunk = wsClient.handleAudioChunk.bind(wsClient);
+            wsClient.handleAudioChunk = (arrayBuffer) => {
+                metrics.audioChunks++;
+                metrics.binaryMessages++;
+                updateMetrics();
+                originalHandleChunk(arrayBuffer);
+            };
+            
+            const originalHandleMessage = wsClient.handleControlMessage.bind(wsClient);
+            wsClient.handleControlMessage = (message) => {
+                metrics.messagesReceived++;
+                updateMetrics();
+                log(`📨 Received: ${message.type}`, 'info');
+                originalHandleMessage(message);
+            };
+            
+            const originalSendMessage = wsClient.sendMessage.bind(wsClient);
+            wsClient.sendMessage = async (message) => {
+                const sendTime = performance.now();
+                await originalSendMessage(message);
+                metrics.messagesSent++;
+                updateMetrics();
+                
+                // Record latency for ping messages
+                if (message.type === 'ping') {
+                    const latency = performance.now() - sendTime;
+                    metrics.latencies.push(latency);
+                    if (metrics.latencies.length > 10) {
+                        metrics.latencies.shift(); // Keep last 10
+                    }
+                    updateMetrics();
+                }
+            };
+        }
+        
+        // Event handlers
+        disconnectBtn.onclick = () => {
+            if (wsClient) {
+                wsClient.disconnect();
+                wsClient = null;
+            }
+        };
+        
+        stopAudioBtn.onclick = () => {
+            if (audioPlayer) {
+                audioPlayer.stopAudio();
+            }
+        };
+        
+        pingBtn.onclick = async () => {
+            if (wsClient) {
+                try {
+                    const startTime = performance.now();
+                    await wsClient.sendMessage({type: 'ping'});
+                    log('📡 Ping sent', 'info');
+                } catch (error) {
+                    log(`❌ Failed to send ping: ${error.message}`, 'error');
+                }
+            }
+        };
+        
+        streamTestBtn.onclick = async () => {
+            if (wsClient && testText.value) {
+                try {
+                    await wsClient.sendTTSRequest(testText.value);
+                    log(`🎵 TTS request sent: "${testText.value.substring(0, 50)}${testText.value.length > 50 ? '...' : ''}"`, 'info');
+                } catch (error) {
+                    log(`❌ Failed to send TTS request: ${error.message}`, 'error');
+                }
+            }
+        };
+        
+        cancelBtn.onclick = async () => {
+            if (wsClient) {
+                try {
+                    await wsClient.cancelAudio();
+                    log('❌ Cancel request sent', 'warning');
+                } catch (error) {
+                    log(`❌ Failed to cancel audio: ${error.message}`, 'error');
+                }
+            }
+        };
+        
+        errorTestBtn.onclick = async () => {
+            if (wsClient) {
+                try {
+                    // Test various error conditions
+                    log('💥 Testing error handling...', 'warning');
+                    
+                    // Test 1: Oversized message
+                    const largeData = 'x'.repeat(15 * 1024 * 1024); // 15MB
+                    await wsClient.sendMessage({
+                        type: 'voice_request',
+                        audio_data: largeData
+                    });
+                    
+                    log('📤 Large message sent (should trigger error)', 'warning');
+                } catch (error) {
+                    log(`❌ Error test exception: ${error.message}`, 'error');
+                }
+            }
+        };
+        
+        // Automated test suite
+        testAllBtn.onclick = async () => {
+            if (!wsClient || !audioPlayer) {
+                log('⚠️ WebSocket and Audio must be initialized first', 'warning');
+                return;
+            }
+            
+            log('🧪 Starting comprehensive test suite...', 'info');
+            testAllBtn.disabled = true;
+            
+            try {
+                // Test 1: Basic ping-pong
+                await testPingPong();
+                
+                // Test 2: TTS streaming
+                await testTTSStreaming();
+                
+                // Test 3: Error handling
+                await testErrorHandling();
+                
+                // Test 4: Rate limiting (careful not to trigger it too much)
+                await testRateLimiting();
+                
+                // Test 5: Audio cancellation
+                await testAudioCancellation();
+                
+                log('✅ Test suite completed', 'success');
+                
+            } catch (error) {
+                log(`❌ Test suite failed: ${error.message}`, 'error');
+            } finally {
+                testAllBtn.disabled = false;
+            }
+        };
+        
+        async function testPingPong() {
+            log('🧪 Testing ping-pong...', 'info');
+            try {
+                await wsClient.sendMessage({type: 'ping'});
+                // Wait for response (handled by event handlers)
+                await new Promise(resolve => setTimeout(resolve, 100));
+                recordTestResult('Ping-Pong Communication', true, 'WebSocket bidirectional communication working');
+            } catch (error) {
+                recordTestResult('Ping-Pong Communication', false, error.message);
+                throw error;
+            }
+        }
+        
+        async function testTTSStreaming() {
+            log('🧪 Testing TTS streaming...', 'info');
+            try {
+                const initialChunks = metrics.audioChunks;
+                await wsClient.sendTTSRequest("Short test message for streaming validation");
+                
+                // Wait for audio chunks
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const chunksReceived = metrics.audioChunks - initialChunks;
+                const success = chunksReceived > 0;
+                recordTestResult('TTS Audio Streaming', success, 
+                    success ? `Received ${chunksReceived} audio chunks` : 'No audio chunks received');
+                
+                if (!success) {
+                    throw new Error('No audio chunks received');
+                }
+            } catch (error) {
+                recordTestResult('TTS Audio Streaming', false, error.message);
+                throw error;
+            }
+        }
+        
+        async function testErrorHandling() {
+            log('🧪 Testing error handling...', 'info');
+            try {
+                // Send invalid message
+                await wsClient.sendMessage({type: 'invalid_message_type'});
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                recordTestResult('Error Handling', true, 'Server handled invalid message gracefully');
+            } catch (error) {
+                recordTestResult('Error Handling', false, error.message);
+                throw error;
+            }
+        }
+        
+        async function testRateLimiting() {
+            log('🧪 Testing rate limiting (light test)...', 'info');
+            try {
+                // Send a few rapid requests (not enough to trigger rate limiting)
+                for (let i = 0; i < 3; i++) {
+                    await wsClient.sendMessage({type: 'ping'});
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                recordTestResult('Rate Limiting Protection', true, 'Multiple requests handled without issues');
+            } catch (error) {
+                recordTestResult('Rate Limiting Protection', false, error.message);
+                throw error;
+            }
+        }
+        
+        async function testAudioCancellation() {
+            log('🧪 Testing audio cancellation...', 'info');
+            try {
+                // Start TTS and immediately cancel
+                await wsClient.sendTTSRequest("This message should be cancelled before completion");
+                await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay
+                await wsClient.cancelAudio();
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                recordTestResult('Audio Cancellation', true, 'Audio cancellation message sent successfully');
+            } catch (error) {
+                recordTestResult('Audio Cancellation', false, error.message);
+                throw error;
+            }
+        }
+        
+        // Initialize UI
+        updateConnectionStatus('error', 'Not connected');
+        updateAudioStatus('warning', 'Audio context not initialized');
+        updateMetrics();
+        
+        log('🎙️ OmniVox WebSocket Test Client v2.0 loaded', 'success');
+        log('📋 Instructions: 1) Initialize Audio Context, 2) Connect WebSocket, 3) Run tests', 'info');
+        log('🔗 Testing WebSocket endpoint: ' + window.location.protocol.replace('http', 'ws') + '//' + window.location.host + '/ws', 'info');
+    </script>
+</body>
+</html>

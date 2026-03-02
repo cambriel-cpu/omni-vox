@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a14">
+    <title>Omni Vox v2.5.7</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Omni Vox</h1>
+            <div class="subtitle">Machine Spirit Interface</div>
+            <div class="version">v2.5.7</div>
+            <button id="new-chat-btn" class="new-chat-btn" title="Start new conversation">New Chat</button>
+            <div id="turn-count" class="turn-count"></div>
+        </div>
+
+        <div id="status" class="status">Initializing...</div>
+
+        <div id="debug-log" class="debug-log">
+            <div class="debug-header">📊 Live Debug Log</div>
+            <div id="debug-content" class="debug-content"></div>
+        </div>
+
+        <div id="conversation" class="conversation"></div>
+
+        <div class="talk-area">
+            <button id="talk-btn" class="talk-btn">Hold to Talk</button>
+        </div>
+
+        <div class="controls"></div>
+
+        <div class="settings">
+            <label>LLM:</label>
+            <select id="llm-select">
+                <option value="">Default (Opus)</option>
+            </select>
+            <label>Voice:</label>
+            <select id="tts-select">
+                <option value="kokoro">Kokoro (Local)</option>
+            </select>
+            <label>Output:</label>
+            <select id="speaker-select">
+                <option value="none">Phone speaker</option>
+            </select>
+            <label>Vol:</label>
+            <input id="volume" type="number" value="65" min="0" max="100" style="width:50px">
+        </div>
+    </div>
+
+    <script src="/js/opus-stream-decoder.js"></script>
+    <script src="/js/opus-streaming-player.js"></script>
+    <script src="/js/websocket-client.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>
