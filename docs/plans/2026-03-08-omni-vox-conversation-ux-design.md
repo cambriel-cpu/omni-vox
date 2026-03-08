@@ -213,7 +213,7 @@ Generate them once with Kokoro + vox-caster filter, store as WAV files.
 **Audio Cues** (non-speech):
 - `cue_wake.wav` — mic-open indicator (current: pink noise burst)
 - `cue_close.wav` — mic-close/session-end indicator
-- `cue_processing.wav` — loopable ambient (low static, servo hum, ~2-3s loop)
+- `cue_processing.wav` — loopable walkie-talkie static/interference (~2-3s loop, source: analog noise with intermittent artifacts and static bursts — see <https://www.soundsnap.com/analog_noise_walkie_talkie_interference_and_intermittent_artifacts_with_static_bursts_and_buzzing>)
 - `cue_error.wav` — error tone (current: descending two-tone)
 
 **Brief Acknowledgments** (pre-recorded TTS, randomized):
@@ -222,6 +222,7 @@ Generate them once with Kokoro + vox-caster filter, store as WAV files.
 - `ack_short_3.wav` — "Let me check."
 - `ack_short_4.wav` — "Processing."
 - `ack_short_5.wav` — "Acknowledged."
+- `ack_short_6.wav` — "Cogitating."
 
 **Long Acknowledgments / Tool-Call Banter** (pre-recorded TTS, randomized):
 - `ack_tool_1.wav` — "Consulting the noosphere. Stand by."
