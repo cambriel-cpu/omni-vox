@@ -219,10 +219,12 @@ git commit -m "feat(mem0): add message_received hook for sender identity trackin
 **Requirements:**
 - MUST: Look up sender context from `senderMap` using the correlation key
 - MUST: Pass `senderId`, `senderName`, `source` as metadata to `provider.add()`
-- MUST: Default `category` to `"meta"` (Flash will eventually classify, but defaults first)
+- MUST: Parse `[category]` prefix from Flash's extracted facts
+- MUST: Validate category against closed taxonomy before write — default to `"personal"` and log if invalid
+- MUST: Validate scope against `"private"` or `"shared:<namespace>"` — default to `"private"` and log if invalid
 - MUST: Default `scope` to `"private"`
-- MUST: Handle lookup failure gracefully (use system defaults)
-- SHOULD: Include category classification in the extraction prompt via `customInstructions`
+- MUST: Handle sender lookup failure gracefully (use system defaults)
+- MUST: Log every defaulted/invalid category and scope at warn level for pattern review
 
 **Files:**
 - Modify: `/root/.openclaw/extensions/openclaw-mem0/index.ts` — enhance `agent_end` hook
@@ -243,8 +245,8 @@ const metadata = {
   senderId: senderCtx.senderId,
   senderName: senderCtx.senderName,
   source: senderCtx.source,
-  category: "meta",  // Default; Phase 2 adds LLM classification
-  scope: "private",  // Default; shared scope requires explicit tagging
+  category: "personal",  // Will be overwritten by parsed [category] from Flash
+  scope: "private",
 };
 ```
 
@@ -291,7 +293,47 @@ When extracting facts, classify each into exactly one category:
 - meta: facts about Omni, lessons learned, operational patterns"
 ```
 
-Note: The category from `customInstructions` affects the *extracted text* but not the metadata field directly. To get category into metadata, we would need to parse Flash's output or add a structured extraction step. **For Phase 1, default to "meta" and revisit in Phase 2.**
+**Category classification via extraction prompt:**
+
+Update `customInstructions` to instruct Flash to prefix each extracted fact with a category tag:
+
+```
+When extracting facts, prefix each with its category in square brackets. Valid categories: personal, preference, project, rpg_session, rules, meta. Examples:
+[personal] User's daughter Isabel was born in May 2024
+[preference] User prefers step-by-step explanations
+[project] Omni Vox runs on port 7100
+```
+
+**Parsing extracted facts:**
+
+After `provider.add()` returns, parse each result's `memory` field for a `[category]` prefix:
+
+```typescript
+const VALID_CATEGORIES = ["personal", "preference", "project", "rpg_session", "rules", "meta"];
+const VALID_SCOPE_RE = /^(private|shared:[a-z0-9_]+)$/;
+
+function parseCategoryFromMemory(memory: string): { category: string; cleanMemory: string } {
+  const match = memory.match(/^\[(\w+)\]\s*(.*)/);
+  if (match) {
+    const candidate = match[1].toLowerCase();
+    if (VALID_CATEGORIES.includes(candidate)) {
+      return { category: candidate, cleanMemory: match[2] };
+    }
+    // Invalid category from Flash — log and default
+    api.logger.warn(`mem0: invalid category "${candidate}" from extraction, defaulting to personal`);
+  }
+  return { category: "personal", cleanMemory: memory };
+}
+```
+
+**Validation rules (applied before every write):**
+- `category` must be one of the 6 valid values → default to `"personal"` and log
+- `scope` must match `"private"` or `"shared:<namespace>"` → default to `"private"` and log
+- Any defaulting is logged at warn level so we can review patterns
+
+After `provider.add()` completes and we have extracted memories, update each memory's metadata in Qdrant with the parsed category. If the Mem0 SDK doesn't support post-hoc metadata updates cleanly, store the category as part of the memory text prefix and filter on text matching during recall as a fallback.
+
+⚠️ **Preferred approach:** If the Mem0 SDK's `add()` method returns the memory IDs, we can call `provider.update()` to patch metadata with the parsed category. Investigate whether `add()` returns IDs in the result object — the earlier tests showed `result.results[].memory` but check for `result.results[].id`.
 
 **Step 4: Test auto-capture with metadata**
 
@@ -643,10 +685,13 @@ git commit -m "feat(mem0): seed MEMORY.md with categorized metadata"
 | OpenClaw config | Updated `customInstructions` with category taxonomy |
 | Qdrant collection | Re-seeded with categorized, metadata-tagged memories |
 
-## What This Does NOT Do (Future)
+## What This Does NOT Do (Phase 2: Misattribution Review)
 
-- **LLM-driven category classification during auto-capture** — Auto-capture defaults category to `"meta"`; structured extraction with Flash parsing category from its output is a follow-up
-- **Qdrant-native OR filters** — Post-filters in plugin for now; move to Qdrant `should` conditions if we scale to thousands of memories
+Phase 2 focuses on reviewing logs for patterns of misattributed memories and fixing them:
+
+- **Audit auto-capture classification logs** — Review warn-level logs for defaulted categories, tune `customInstructions` prompt based on patterns
+- **Memory correction tooling** — Bulk re-categorize or delete misattributed memories based on log analysis
+- **Qdrant-native OR filters** — Move to Qdrant `should` conditions if we scale to thousands of memories
 - **MEMORY.md removal from system prompt** — Keep it until regression test passes and we're confident in retrieval quality
 
 ## Risk Assessment
