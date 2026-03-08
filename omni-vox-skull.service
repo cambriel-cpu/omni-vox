@@ -1,0 +1,23 @@
+[Unit]
+Description=Omni Vox Skull — Headless Voice Assistant
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=omni
+Group=omni
+WorkingDirectory=/home/omni/omni-vox-skull
+ExecStart=/usr/bin/python3 -m skull.main
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=omni-vox-skull
+
+[Install]
+WantedBy=default.target
