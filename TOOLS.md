@@ -45,8 +45,14 @@ Things like:
 
 ## SSH
 
-- **Unraid host:** `ssh -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes omni@192.168.68.51`
-- **User:** `omni` (docker group, no root)
+- **Unraid host:** `ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o IdentitiesOnly=yes omni@192.168.68.51`
+- **User:** `omni` (full sudo access, use `sudo docker` for container operations)
+
+### Servo-Skull SSH
+- **Direct Tailscale access:** `ssh -i /root/.ssh/id_ed25519 omni@100.69.9.99`  
+- **Specs:** Pi 5, 8GB RAM, 128GB storage, Debian Linux aarch64
+- **Status:** Online, SSH functional, ready for voice assistant configuration
+- **Uptime:** 1+ days, fully operational
 
 ## Network
 
@@ -54,9 +60,15 @@ Things like:
 - **OpenClaw container:** 192.168.68.99 (macvlan)
 - **Macvlan shim:** 192.168.68.200
 
-### Tailscale
-- **Omnissiah:** On the tailnet (home server)
-- **Magnus:** Chris's Windows laptop (office), `magnus.tail806b98.ts.net`
+### Tailscale Network
+- **OpenClaw (me):** `100.110.15.105` - omni
+- **Omnissiah:** `100.109.78.64` - omnissiah (Unraid host)
+- **Servo-skull:** `100.69.9.99` - servo-skull (Pi 5)
+- **Magnus:** `100.72.144.77` - magnus (Chris's Windows laptop, office)
+- **Malcador:** `100.67.23.81` - malcador (Windows device)
+- **Pixel 9 Pro:** `100.108.160.83` - pixel-9-pro (Chris's phone)
+
+**Direct mesh connectivity:** All devices reachable via Tailscale IPs
 
 ### Sonos Speakers
 - **Office network (via Magnus bridge):** Office, Game Room, Workshop
@@ -95,28 +107,38 @@ Things like:
 
 ## Omni Vox (Voice Gateway)
 
-- **Container:** `omni-vox` on Unraid (host networking)
-- **Image:** `omni-vox:v1.0.0`
+- **Repository:** `https://github.com/cambriel-cpu/omni-vox` (clean project structure)
+- **Container:** `omni-vox` on Unraid (host networking)  
+- **Image:** `omni-vox:v1.0.1`
 - **Port:** 7100
 - **URL (home):** `http://192.168.68.51:7100`
 - **URL (Tailscale):** `http://omnissiah.tail806b98.ts.net:7100`
-- **Source:** `scripts/voice-gateway/` in workspace repo
 - **Config:** `/mnt/user/appdata/omni-vox/.env` on Unraid (chmod 600)
 - **Mounts:**
   - `/mnt/user/appdata/openclaw/config/agents/main/sessions:/sessions:ro`
   - `/mnt/user/appdata/openclaw/config/workspace/SOUL.md:/app/SOUL.md:ro`
 - **Restart policy:** `unless-stopped`
 - **Auto-starts:** Yes (Docker restart policy)
-- **Logs:** `ssh omni@192.168.68.51 "docker logs omni-vox"`
-- **Rebuild & redeploy:**
+- **Logs:** `ssh omni@192.168.68.51 "sudo docker logs omni-vox"`
+- **Deploy from GitHub:**
   ```bash
-  cd /root/.openclaw/workspace/scripts/voice-gateway
-  tar czf /tmp/omni-vox-build.tar.gz --exclude=venv --exclude=__pycache__ --exclude='*.pyc' Dockerfile .dockerignore requirements.txt server.py static/
-  scp -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes /tmp/omni-vox-build.tar.gz omni@192.168.68.51:/tmp/
-  ssh -i /root/.openclaw/omni_ssh_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes omni@192.168.68.51 "cd /tmp/omni-vox-build && tar xzf /tmp/omni-vox-build.tar.gz && docker build -t omni-vox:v1.0.0 . && docker stop omni-vox && docker rm omni-vox && docker run -d --name omni-vox --network host --restart unless-stopped --env-file /mnt/user/appdata/omni-vox/.env -v /mnt/user/appdata/openclaw/config/agents/main/sessions:/sessions:ro -v /mnt/user/appdata/openclaw/config/workspace/SOUL.md:/app/SOUL.md:ro omni-vox:v1.0.0"
+  # Use clean deployment script
+  /root/.openclaw/workspace/scripts/deploy-omni-vox.sh
   ```
 - **⚠️ `.env` changes need full recreate** — `docker restart` does NOT re-read `--env-file`. Must `stop + rm + run`.
-- **Networking:** OpenClaw hooks at `192.168.68.99:18789` (macvlan, requires shim route — see below)
+- **Development:** Clone repository for VS Code debugging: `git clone https://github.com/cambriel-cpu/omni-vox.git`
+
+## Qdrant (Vector Database)
+
+- **Container:** `qdrant` on Unraid
+- **Image:** `qdrant/qdrant:latest`
+- **Ports:** 6333 (HTTP API), 6334 (gRPC)
+- **Storage:** `/mnt/user/appdata/qdrant/storage/`
+- **Snapshots:** `/mnt/user/appdata/qdrant/snapshots/`
+- **Dashboard:** `http://192.168.68.51:6333/dashboard`
+- **API:** `http://192.168.68.51:6333`
+- **Restart policy:** `unless-stopped`
+- **Purpose:** Vector store for Mem0 memory system (future: Horus Heresy knowledge base)
 
 ## Whisper (STT)
 
