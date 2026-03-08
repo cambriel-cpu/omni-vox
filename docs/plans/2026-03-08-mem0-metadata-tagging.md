@@ -102,13 +102,13 @@ Auto-recall should route by context:
 | Voice (Omni Vox) | `personal`, `preference`, `project`, `meta` | `private` |
 | Rules question (any channel) | `rules` | any scope |
 
-**Phase 1 (this plan):** Tag all memories with metadata. Filter auto-recall by `senderId` (show current speaker's memories + untagged universal memories). Category-based routing is Phase 2.
-
-**Phase 1 recall filter logic:**
+**Recall filter logic:**
 ```
 WHERE (senderId = currentSender OR senderId IS NULL)
+  AND (category IN contextCategories OR category IS NULL)
+  AND (scope = "private" OR scope IN user's shared namespaces)
 ```
-This prevents cross-user leakage while still returning manually seeded universal memories.
+This prevents cross-user leakage, routes the right kind of memory to the right context, and keeps shared campaign memories accessible to participants.
 
 ### Quality Requirements
 **Performance:** Zero additional latency — metadata is stored alongside vectors, filtering adds negligible overhead to Qdrant queries
@@ -319,10 +319,12 @@ git commit -m "feat(mem0): tag auto-captured memories with sender and metadata"
 
 **Requirements:**
 - MUST: Look up current sender from `senderMap`
-- MUST: Filter recalled memories to `senderId = currentSender OR senderId IS NULL`
-- MUST: Include untagged memories (from manual seeding / migration) that have no `senderId`
+- MUST: Filter recalled memories by sender: `senderId = currentSender OR senderId IS NULL`
+- MUST: Filter recalled memories by category based on context (see routing table)
+- MUST: Filter recalled memories by scope: `scope = "private" OR scope IN user's shared namespaces`
+- MUST: Include untagged memories (from manual seeding / migration) that have no metadata fields
 - MUST: Not break recall when sender is unknown (fall back to unfiltered)
-- SHOULD: Log which sender filter was applied
+- SHOULD: Log which filters were applied
 
 **Files:**
 - Modify: `/root/.openclaw/extensions/openclaw-mem0/index.ts` — enhance `before_agent_start` hook
@@ -354,22 +356,56 @@ const longTermResults = await provider.search(
 
 **Problem:** This would EXCLUDE untagged memories (those without `senderId`). We need an OR condition: `senderId = X OR senderId IS NULL`.
 
-Option B — Post-filter in plugin (simpler, handles the OR case):
+Option B — Post-filter in plugin (simpler, handles the OR conditions):
 
-Search without sender filter, then filter results in the plugin:
+Search without metadata filters, then filter results in the plugin:
 
 ```typescript
 const allResults = await provider.search(event.prompt, buildSearchOptions());
 
-const filteredResults = senderCtx
-  ? allResults.filter(r => 
-      !r.metadata?.senderId ||  // untagged (universal) memories
-      r.metadata.senderId === senderCtx.senderId  // this sender's memories
-    )
-  : allResults;  // unknown sender, return everything
+// Determine context-appropriate categories based on channel/session
+const contextCategories = deriveContextCategories(senderCtx?.channelId);
+// e.g., #general → ["personal", "preference", "project", "meta"]
+// e.g., #wrath-and-glory → ["rpg_session", "rules"]
+
+const filteredResults = allResults.filter(r => {
+  const meta = r.metadata ?? {};
+  
+  // Sender filter: this sender's memories + untagged universals
+  const senderOk = !meta.senderId 
+    || !senderCtx 
+    || meta.senderId === senderCtx.senderId;
+  
+  // Category filter: context-appropriate categories + untagged
+  const categoryOk = !meta.category 
+    || contextCategories.includes(meta.category);
+  
+  // Scope filter: private + user's shared namespaces + untagged
+  const scopeOk = !meta.scope 
+    || meta.scope === "private" 
+    || userSharedNamespaces.includes(meta.scope);
+  
+  return senderOk && categoryOk && scopeOk;
+});
 ```
 
-**Recommendation:** Option B for Phase 1. It's simpler, handles the OR logic cleanly, and the performance cost is negligible (filtering 5-10 results in memory). Phase 2 can move to Qdrant-native filtering with `should` conditions if we scale to thousands of memories.
+**Recommendation:** Option B. It handles all three OR conditions cleanly, and the performance cost is negligible (filtering 5-20 results in memory). Move to Qdrant-native filtering if we scale to thousands of memories.
+
+**Channel → Category routing helper:**
+
+```typescript
+function deriveContextCategories(channelId?: string): string[] {
+  // Channel-specific routing
+  const channelMap: Record<string, string[]> = {
+    "discord:#wrath-and-glory": ["rpg_session", "rules", "personal"],
+    "discord:#servo-skull": ["project", "rules"],
+  };
+  
+  // Default for general chat and voice
+  return channelMap[channelId ?? ""] 
+    ?? ["personal", "preference", "project", "meta"];
+}
+```
 
 **Step 3: Update the memory injection format**
 
@@ -607,12 +643,11 @@ git commit -m "feat(mem0): seed MEMORY.md with categorized metadata"
 | OpenClaw config | Updated `customInstructions` with category taxonomy |
 | Qdrant collection | Re-seeded with categorized, metadata-tagged memories |
 
-## What This Does NOT Do (Phase 2)
+## What This Does NOT Do (Future)
 
-- **Category-based recall routing** — Phase 1 filters by sender only; Phase 2 adds intelligent category routing based on conversation context
-- **LLM-driven category classification** — Phase 1 uses defaults; Phase 2 adds structured extraction with category in Flash's output
-- **Scope-based multi-user queries** — Phase 1 is `private` only; Phase 2 enables `shared:<namespace>` for RPG campaigns
-- **Qdrant-native OR filters** — Phase 1 post-filters in plugin; Phase 2 uses Qdrant `should` conditions for efficiency
+- **LLM-driven category classification during auto-capture** — Auto-capture defaults category to `"meta"`; structured extraction with Flash parsing category from its output is a follow-up
+- **Qdrant-native OR filters** — Post-filters in plugin for now; move to Qdrant `should` conditions if we scale to thousands of memories
+- **MEMORY.md removal from system prompt** — Keep it until regression test passes and we're confident in retrieval quality
 
 ## Risk Assessment
 
