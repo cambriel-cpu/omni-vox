@@ -24,12 +24,16 @@ Things like:
 
 ## Local LLM (Ollama)
 
-- **Container:** Ollama on Unraid (Docker, GPU passthrough)
-- **API:** `http://192.168.68.51:11434` (OpenAI-compatible at `/v1`)
+- **Container:** Ollama on Unraid (Docker, GPU passthrough, macvlan br0)
+- **Macvlan IP:** `192.168.68.101`
+- **API:** `http://192.168.68.101:11434` (OpenAI-compatible at `/v1`)
 - **Model:** `qwen2.5:32b` (Q4_K_M, ~19GB, ~13.3GB VRAM)
 - **OpenClaw ref:** `ollama/qwen2.5:32b`
 - **Performance:** ~5.5 tok/s generation, cold start ~9s
-- **Use for:** Subagent tasks, briefings, heartbeats, cron, bulk processing
+- **Embedding model:** `bge-m3` (1024 dims, ~1.2GB, ~75ms warm latency, ~20s cold start)
+- **Embedding endpoint:** `http://192.168.68.101:11434/v1/embeddings` (OpenAI-compatible)
+- **Use for:** Subagent tasks, briefings, heartbeats, cron, bulk processing, Mem0 embeddings
+- **⚠️ Macvlan shim route needed on Unraid host:** `sudo ip route add 192.168.68.101 dev macvlan-shim` (non-persistent, re-add after reboot)
 
 ## Google Account
 - **Email:** omni.omnissiah@gmail.com
@@ -58,6 +62,7 @@ Things like:
 
 - **Unraid host:** 192.168.68.51 / omnissiah.local
 - **OpenClaw container:** 192.168.68.99 (macvlan)
+- **Ollama container:** 192.168.68.101 (macvlan)
 - **Macvlan shim:** 192.168.68.200
 
 ### Tailscale Network
@@ -154,9 +159,12 @@ Things like:
 
 ## Macvlan Shim Routes (Non-Persistent)
 
-After any Unraid reboot, the OpenClaw macvlan-shim route must be re-added:
+After any Unraid reboot, macvlan-shim routes must be re-added:
 ```bash
-ssh omni@192.168.68.51 "docker run --rm --privileged --network host alpine ip route add 192.168.68.99 dev macvlan-shim"
+ssh omni@192.168.68.51 "
+  sudo ip route add 192.168.68.99 dev macvlan-shim   # OpenClaw
+  sudo ip route add 192.168.68.101 dev macvlan-shim  # Ollama
+"
 ```
 **Whisper no longer needs a shim route** (moved to host networking 2026-02-17).
 Consider adding to Unraid User Scripts startup task for persistence.
