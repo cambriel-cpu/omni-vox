@@ -44,20 +44,20 @@
 |-----------|--------|-----|
 | Plugin | tensakulabs/openclaw-mem0 | Fixes critical bugs in official plugin (broken auto-recall, baseURL ignored) |
 | Vector store | Qdrant (Docker) | Multi-collection (memory now, HH rules later), dedup support, dashboard UI, ~50MB RAM |
-| Embeddings | nomic-embed-text via Ollama | Best local quality (86.2% hit rate), 768 dims, ~274MB VRAM, <50ms latency |
-| Fact extraction | Claude Haiku | Reliable tool-use, async post-response (zero latency impact), cheap (~$0.001/extraction) |
-| Fallback extraction | Sonnet → Gemini Flash 2.5 | If Haiku fails |
+| Embeddings | BGE-M3 via Ollama | Best local retrieval quality, 1024 dims, ~1.2GB VRAM, <80ms latency, hybrid search capable |
+| Fact extraction | Gemini Flash 2.5 | OpenAI-compatible API natively, fast, cheap, async post-response (zero latency impact) |
+| Fallback extraction | Sonnet via OpenRouter | If Flash fails |
 
 ### Latency Budget
 
 | Operation | When | Latency | User-facing? |
 |-----------|------|---------|-------------|
-| Embed inbound message | Before response | ~15-50ms | Yes (but negligible) |
+| Embed inbound message (BGE-M3) | Before response | ~30-80ms | Yes (but negligible) |
 | Qdrant vector search | Before response | ~5-20ms | Yes (but negligible) |
 | Memory injection | Before response | ~1ms | No (string concat) |
-| **Total recall overhead** | | **~20-70ms** | **Barely noticeable** |
-| Fact extraction (Haiku) | After response delivered | ~1-2s | **No — async** |
-| Embed + store new facts | After response delivered | ~100ms | **No — async** |
+| **Total recall overhead** | | **~35-100ms** | **Barely noticeable** |
+| Fact extraction (Gemini Flash 2.5) | After response delivered | ~1-2s | **No — async** |
+| Embed + store new facts (BGE-M3) | After response delivered | ~100ms | **No — async** |
 
 ### Chunking Strategy (Critical for Retrieval Quality)
 
@@ -209,7 +209,7 @@ git commit -m "docs: add Qdrant vector database to TOOLS.md"
 **Step 1: Pull the model**
 
 ```bash
-ssh -i /root/.ssh/id_ed25519 omni@192.168.68.51 "sudo docker exec ollama ollama pull nomic-embed-text"
+ssh -i /root/.ssh/id_ed25519 omni@192.168.68.51 "sudo docker exec ollama ollama pull bge-m3"
 ```
 
 **Step 2: Test embedding endpoint**
@@ -217,25 +217,25 @@ ssh -i /root/.ssh/id_ed25519 omni@192.168.68.51 "sudo docker exec ollama ollama 
 ```bash
 curl -s http://192.168.68.51:11434/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"model": "nomic-embed-text", "input": "Chris prefers Haiku for voice chat"}' \
+  -d '{"model": "bge-m3", "input": "Chris prefers Haiku for voice chat"}' \
   | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'Dims: {len(d[\"data\"][0][\"embedding\"])}, first 3: {d[\"data\"][0][\"embedding\"][:3]}')"
 ```
-Expected: `Dims: 768, first 3: [0.xxx, 0.xxx, 0.xxx]`
+Expected: `Dims: 1024, first 3: [0.xxx, 0.xxx, 0.xxx]`
 
 **Step 3: Measure latency**
 
 ```bash
 time curl -s http://192.168.68.51:11434/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"model": "nomic-embed-text", "input": "Test embedding latency measurement"}'
+  -d '{"model": "bge-m3", "input": "Test embedding latency measurement"}'
 ```
-Expected: <100ms warm, <2s cold start.
+Expected: <100ms warm, <3s cold start.
 
 **Step 4: Document in TOOLS.md**
 
 Add under Ollama section:
 ```
-- **Embedding model:** `nomic-embed-text` (768 dims, ~274MB VRAM)
+- **Embedding model:** `bge-m3` (1024 dims, ~1.2GB VRAM)
 - **Endpoint:** `http://192.168.68.51:11434/v1/embeddings` (OpenAI-compatible)
 - **Use:** Mem0 memory embeddings
 ```
@@ -294,7 +294,7 @@ Before any changes, test the 10 reference questions against current MEMORY.md sy
               "config": {
                 "apiKey": "ollama",
                 "baseURL": "http://192.168.68.51:11434/v1",
-                "model": "nomic-embed-text"
+                "model": "bge-m3"
               }
             },
             "vectorStore": {
@@ -308,9 +308,9 @@ Before any changes, test the 10 reference questions against current MEMORY.md sy
             "llm": {
               "provider": "openai",
               "config": {
-                "apiKey": "${ANTHROPIC_API_KEY}",
-                "baseURL": "https://api.anthropic.com/v1",
-                "model": "claude-haiku-4-5-20251001"
+                "apiKey": "${GEMINI_API_KEY}",
+                "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+                "model": "gemini-2.5-flash"
               }
             }
           }
@@ -326,14 +326,10 @@ Notes:
 - `topK: 5` — recall up to 5 relevant memories per request
 - `searchThreshold: 0.3` — minimum similarity score (tune in Task 6)
 - Embedder: Ollama nomic-embed-text via OpenAI-compatible API
-- LLM (extraction): Haiku for fact extraction/dedup decisions
+- LLM (extraction): Gemini Flash 2.5 for fact extraction/dedup decisions (OpenAI-compatible natively)
 - Vector store: Qdrant on Unraid
 
-⚠️ **Haiku LLM config:** The tensakulabs fork uses OpenAI-compatible API format. We need to verify whether Anthropic's API works with this format or if we need to route Haiku through a compatible proxy. If Anthropic's native API doesn't work, alternatives:
-- Route through OpenRouter: `baseURL: "https://openrouter.ai/api/v1"`, `apiKey: "${OPENROUTER_API_KEY}"`
-- Use Gemini Flash 2.5 instead: `baseURL: "https://generativelanguage.googleapis.com/v1beta/openai"`, model: `gemini-2.5-flash`
-
-Test which works and document the final configuration.
+**Gemini Flash 2.5** is used for fact extraction because Google's API has a native OpenAI-compatible endpoint — no proxy needed. The GEMINI_API_KEY is already available in the environment.
 
 **Step 4: Verify plugin loads**
 
@@ -700,6 +696,8 @@ Have a normal conversation in Discord that touches on stored memories. Verify re
 
 Send a voice message referencing prior context. Verify response reflects recalled memories.
 
+⚠️ **Verify auto-recall fires on hook requests.** Omni Vox sends messages via `/hooks/agent` which creates new sessions per request (bug #11665). If auto-recall doesn't fire on hook sessions, we need to add explicit Qdrant search in Omni Vox's `server.py` before the hook call — embed the transcript via Ollama, search Qdrant, inject results into the voice message prefix. Same latency, different code path.
+
 **Step 3: Test auto-capture**
 
 Share a new fact: "I'm thinking about getting a second 3D printer for resin."
@@ -770,12 +768,12 @@ git commit -m "docs: finalize Mem0 RAG configuration, tuning, and metrics tracki
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|-----------|
-| Haiku extraction via Anthropic API incompatible with OpenAI format | Medium | High | Fall back to OpenRouter or Gemini Flash 2.5 |
-| nomic-embed-text quality insufficient | Low | Medium | Switch to text-embedding-3-small (cloud, ~$0.02/1M tokens) |
+| Gemini Flash 2.5 extraction quality insufficient | Low | Medium | Fall back to Sonnet via OpenRouter |
+| BGE-M3 embedding quality insufficient | Low | Medium | Switch to text-embedding-3-small (cloud, ~$0.02/1M tokens) |
 | Qdrant container fails | Low | Medium | LanceDB plugin as fallback, MEMORY.md.bak to restore |
 | Poor recall quality | Medium | High | Tune searchThreshold/topK, manual fact editing, revert to MEMORY.md |
 | Auto-capture stores garbage | Medium | Low | Review with `openclaw mem0 list`, use `memory_forget` to clean up |
-| LLM config format mismatch | Medium | High | Test Haiku config format before full deployment |
+| Gemini Flash OpenAI endpoint changes | Low | Medium | Fall back to OpenRouter for Haiku/Sonnet |
 
 ## What This Does NOT Do (Phase 2)
 
