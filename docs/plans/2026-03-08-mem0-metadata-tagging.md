@@ -69,6 +69,8 @@ interface MemoryMetadata {
 }
 ```
 
+**Extraction LLM:** `gemini-3.1-flash-lite-preview` via Google native SDK (upgrade from `gemini-2.5-flash`). Tested and confirmed: correctly classifies `[category]` prefixes on extracted facts.
+
 **Closed taxonomy — `category`:**
 
 | Value | Description | Example |
