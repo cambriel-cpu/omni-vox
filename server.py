@@ -46,6 +46,9 @@ KOKORO_URL = os.environ.get("KOKORO_URL", "http://192.168.68.51:8880/v1/audio/sp
 KOKORO_BASE_URL = os.environ.get("KOKORO_BASE_URL", "http://192.168.68.51:8880")
 KOKORO_MODEL = "kokoro"
 KOKORO_VOICE = "bm_george"
+CHATTERBOX_URL = os.environ.get("CHATTERBOX_URL", "http://192.168.68.51:8004/v1/audio/speech")
+CHATTERBOX_BASE_URL = os.environ.get("CHATTERBOX_BASE_URL", "http://192.168.68.51:8004")
+CHATTERBOX_VOICE = os.environ.get("CHATTERBOX_VOICE", "Drogan.wav")
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "qD2z2CBGpZkjKjCxsv76")
 OPENCLAW_GATEWAY = os.environ.get("OPENCLAW_GATEWAY", "http://127.0.0.1:18789")
@@ -74,7 +77,9 @@ conversation = ConversationBuffer(max_turns=20)
 message_validator = MessageValidator()
 session_manager = SessionManager()
 audio_streamer = AudioStreamer(
-    kokoro_base_url=KOKORO_BASE_URL
+    kokoro_base_url=KOKORO_BASE_URL,
+    chatterbox_base_url=CHATTERBOX_BASE_URL,
+    chatterbox_voice=CHATTERBOX_VOICE,
 )
 
 # CORS - allow all origins for now
@@ -660,6 +665,11 @@ async def generate_tts(text: str, provider: str = "kokoro") -> bytes:
                 headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
                 json={"text": text, "model_id": "eleven_multilingual_v2"},
             )
+        elif provider == "chatterbox":
+            response = await client.post(
+                CHATTERBOX_URL,
+                json={"model": "chatterbox", "input": text, "voice": CHATTERBOX_VOICE, "response_format": "opus"},
+            )
         else:
             response = await client.post(
                 KOKORO_URL,
@@ -672,7 +682,10 @@ async def generate_tts(text: str, provider: str = "kokoro") -> bytes:
 @app.get("/api/tts/providers")
 async def tts_providers():
     """List available TTS providers"""
-    providers = [{"id": "kokoro", "name": "Kokoro (Local)"}]
+    providers = [
+        {"id": "kokoro", "name": "Kokoro (Local)"},
+        {"id": "chatterbox", "name": "Chatterbox — Drogan (Local)"},
+    ]
     if ELEVENLABS_API_KEY:
         providers.append({"id": "elevenlabs", "name": "ElevenLabs"})
     return {"providers": providers}

@@ -11,8 +11,10 @@ logger = logging.getLogger(__name__)
 class AudioStreamer:
     """Handles TTS streaming over WebSocket using binary frames"""
     
-    def __init__(self, kokoro_base_url: str, timeout_seconds: int = 30):
+    def __init__(self, kokoro_base_url: str, chatterbox_base_url: str = "http://192.168.68.51:8004", chatterbox_voice: str = "Drogan.wav", timeout_seconds: int = 30):
         self.kokoro_base_url = kokoro_base_url
+        self.chatterbox_base_url = chatterbox_base_url
+        self.chatterbox_voice = chatterbox_voice
         self.timeout = httpx.Timeout(timeout_seconds, read=5.0)
         
         # ElevenLabs configuration
@@ -61,6 +63,18 @@ class AudioStreamer:
                             "text": text,
                             "model_id": "eleven_multilingual_v2"
                         }
+                    )
+                elif provider == "chatterbox":
+                    tts_request = client.stream(
+                        "POST",
+                        f"{self.chatterbox_base_url}/v1/audio/speech",
+                        json={
+                            "model": "chatterbox",
+                            "voice": self.chatterbox_voice,
+                            "input": text,
+                            "response_format": "opus",
+                        },
+                        headers={"Content-Type": "application/json"}
                     )
                 else:
                     # Default to Kokoro
