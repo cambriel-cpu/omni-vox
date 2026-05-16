@@ -7,17 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0-sentence-streaming] - 2026-05-16
+
 ### Added
-- Clean GitHub repository structure
-- Comprehensive README with API documentation
-- Docker deployment configuration
-- Environment variable configuration
-- MIT License
+- `openclaw_streaming.py` — Direct OpenResponses API client with SSE streaming
+- Sentence-level streaming: LLM response is chunked into sentences and each sentence is TTS'd and sent to the client immediately (no waiting for full response)
+- New WebSocket message types: `response_sentence` (per-sentence text), `audio_start.mode=sentence_stream`
+- `call_sync()` function for non-streaming REST endpoint use
 
 ### Changed
-- Separated project from OpenClaw workspace
-- Improved project organization
-- Updated documentation
+- **WebSocket `voice_request` path**: Replaced hooks/agent + file-polling (5-15s latency) with direct OpenResponses SSE streaming (~1-2s time-to-first-audio)
+- **REST `/api/voice` endpoint**: Uses `openclaw_streaming.call_sync()` instead of hooks+polling — eliminates polling overhead
+- Instructions/context now passed via OpenResponses `instructions` field instead of being prepended to the message
+
+### Removed
+- Dependency on `hooks/agent` endpoint for WebSocket voice path (REST fallback still available via `call_openclaw()`)
+- File-polling loop for response detection
 
 ## [2.0.0-websocket-streaming] - 2026-02-27
 

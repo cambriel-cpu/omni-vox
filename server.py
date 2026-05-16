@@ -24,6 +24,7 @@ from session_manager import SessionManager, VoiceSession
 from audio_streamer import AudioStreamer
 from conversation import ConversationBuffer
 from metrics import metrics, start_metrics_server
+import openclaw_streaming
 
 
 def _short_model_name(model: str) -> str:
@@ -196,7 +197,7 @@ async def handle_message(message: dict, session: VoiceSession):
         pass
         
     elif message_type == "voice_request":
-        # Process voice input with real STT + LLM + TTS pipeline
+        # Process voice input with streaming STT → LLM → TTS pipeline
         audio_data = message.get("audio_data", "")
         tts_provider = message.get("tts_provider", "kokoro")
         llm_model = message.get("llm_model", None)
@@ -206,111 +207,147 @@ async def handle_message(message: dict, session: VoiceSession):
         
         logger.info(f"Voice request: tts={tts_provider}, llm={llm_model}, sonos={sonos_speaker}@{sonos_location}, volume={sonos_volume}")
         
-        if audio_data:
-            try:
-                # Step 1: Real STT transcription 
-                start_time = time.time()
-                audio_bytes = base64.b64decode(audio_data)
-                
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    files = {"file": ("audio.wav", audio_bytes, "audio/wav")}
-                    data = {"model": WHISPER_MODEL}
-                    response = await client.post(WHISPER_URL, files=files, data=data)
-                    response.raise_for_status()
-                    transcript = response.json().get("text", "")
-                
-                if not transcript:
-                    await session.websocket.send_json({
-                        "type": "error",
-                        "message": "No transcript generated"
-                    })
-                    metrics.message_sent("error")
-                    return
-                
-                # Send transcript to client
-                await session.websocket.send_json({
-                    "type": "transcript", 
-                    "session_id": session.session_id,
-                    "text": transcript
-                })
-                metrics.message_sent("transcript")
-                
-                # Step 2: Real LLM processing via OpenClaw hooks
-                if not hooks_token:
-                    await session.websocket.send_json({
-                        "type": "error",
-                        "message": "OpenClaw hooks not configured"
-                    })
-                    metrics.message_sent("error")
-                    return
-                
-                # Use call_openclaw function which uses the working hooks/agent endpoint
-                try:
-                    llm_response, llm_usage = await call_openclaw(
-                        f"[Voice from Chris via OmniVox - respond concisely for TTS] {transcript}",
-                        timeout=30.0, 
-                        model=message.get("llm_model", "anthropic/claude-opus-4-6")
-                    )
-                        
-                    # Add conversation tracking for WebSocket path
-                    conv_session_key = "voice"
-                    conversation.add_turn(conv_session_key, transcript, llm_response)
-                        
-                except Exception as llm_error:
-                    print(f"  LLM processing failed: {llm_error}")
-                    await session.websocket.send_json({
-                        "type": "error",
-                        "message": f"LLM processing failed: {str(llm_error)}"
-                    })
-                    metrics.message_sent("error")
-                    return
-                
-                # Send response text to client
-                await session.websocket.send_json({
-                    "type": "response_text",
-                    "session_id": session.session_id, 
-                    "text": llm_response
-                })
-                metrics.message_sent("response_text")
-                
-                # Step 3: TTS Audio Output (WebSocket streaming or Sonos playback)
-                if sonos_speaker:
-                    # Generate TTS audio and play on Sonos speaker
-                    audio_bytes = await generate_tts(llm_response, tts_provider)
-                    try:
-                        await play_on_sonos(sonos_speaker, audio_bytes, sonos_volume, sonos_location)
-                        # Send success notification to client
-                        await session.websocket.send_json({
-                            "type": "sonos_played",
-                            "session_id": session.session_id,
-                            "speaker": sonos_speaker,
-                            "location": sonos_location
-                        })
-                        metrics.message_sent("sonos_played")
-                        logger.info(f"Played audio on {sonos_speaker} ({sonos_location}) for session {session.session_id}")
-                    except Exception as sonos_error:
-                        logger.error(f"Sonos playback failed: {sonos_error}")
-                        await session.websocket.send_json({
-                            "type": "error",
-                            "message": f"Sonos playback failed: {str(sonos_error)}"
-                        })
-                        metrics.message_sent("error")
-                else:
-                    # Stream TTS audio to browser via WebSocket
-                    await audio_streamer.stream_tts_audio(llm_response, session, tts_provider)
-                
-            except Exception as e:
-                logger.error(f"Voice processing error: {e}")
-                await session.websocket.send_json({
-                    "type": "error",
-                    "message": f"Voice processing failed: {str(e)}"
-                })
+        if not audio_data:
+            await session.websocket.send_json({"type": "error", "message": "No audio data provided"})
+            metrics.message_sent("error")
+            return
+        
+        try:
+            # ── Step 1: STT Transcription ──��──────────────────────────
+            stt_start = time.time()
+            audio_bytes = base64.b64decode(audio_data)
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                files = {"file": ("audio.wav", audio_bytes, "audio/wav")}
+                data = {"model": WHISPER_MODEL}
+                response = await client.post(WHISPER_URL, files=files, data=data)
+                response.raise_for_status()
+                transcript = response.json().get("text", "")
+            
+            stt_ms = round((time.time() - stt_start) * 1000)
+            
+            if not transcript:
+                await session.websocket.send_json({"type": "error", "message": "No transcript generated"})
                 metrics.message_sent("error")
-        else:
+                return
+            
+            # Send transcript to client immediately
             await session.websocket.send_json({
-                "type": "error",
-                "message": "No audio data provided"
+                "type": "transcript",
+                "session_id": session.session_id,
+                "text": transcript,
+                "stt_ms": stt_ms,
             })
+            metrics.message_sent("transcript")
+            
+            # ── Step 2+3: Streaming LLM → TTS (sentence-level pipeline) ──
+            # Build instructions with conversation context
+            voice_prefix = (
+                "[Voice conversation from Chris via Omni Vox. "
+                "Respond naturally and concisely — this will be spoken aloud via TTS. "
+                "Do NOT use any tools. Do NOT echo back what Chris said. Just respond directly.]"
+            )
+            conv_session_key = "voice"
+            history_context = conversation.format_context(conv_session_key)
+            instructions = voice_prefix
+            if history_context:
+                instructions += f"\n\n{history_context}"
+            
+            # Signal audio streaming start
+            await session.websocket.send_json({
+                "type": "audio_start",
+                "session_id": session.session_id,
+                "format": "opus",
+                "mode": "sentence_stream",
+            })
+            metrics.message_sent("audio_start")
+            
+            full_response = ""
+            sentence_count = 0
+            llm_start = time.time()
+            
+            async for sentence in openclaw_streaming.stream_response(
+                transcript,
+                instructions=instructions,
+                model=llm_model,
+                user="omni-vox-pwa",
+            ):
+                if session.is_cancelled:
+                    break
+                
+                # Skip NO_REPLY
+                if sentence.strip().upper().startswith("NO_REPLY"):
+                    break
+                
+                full_response += sentence + " "
+                sentence_count += 1
+                
+                # Send sentence text to client (for display)
+                await session.websocket.send_json({
+                    "type": "response_sentence",
+                    "session_id": session.session_id,
+                    "text": sentence,
+                    "index": sentence_count,
+                })
+                metrics.message_sent("response_sentence")
+                
+                # TTS this sentence immediately
+                if sonos_speaker:
+                    # For Sonos: accumulate and play at end (can't stream to Sonos)
+                    pass
+                else:
+                    # Stream TTS audio for this sentence to browser
+                    try:
+                        tts_audio = await generate_tts(sentence, tts_provider)
+                        if tts_audio:
+                            await session.websocket.send_bytes(tts_audio)
+                    except Exception as tts_err:
+                        logger.warning(f"TTS failed for sentence {sentence_count}: {tts_err}")
+            
+            llm_ms = round((time.time() - llm_start) * 1000)
+            full_response = full_response.strip()
+            
+            # Sonos playback (full response at once)
+            if sonos_speaker and full_response:
+                try:
+                    tts_audio = await generate_tts(full_response, tts_provider)
+                    await play_on_sonos(sonos_speaker, tts_audio, sonos_volume, sonos_location)
+                    await session.websocket.send_json({
+                        "type": "sonos_played",
+                        "session_id": session.session_id,
+                        "speaker": sonos_speaker,
+                        "location": sonos_location,
+                    })
+                    metrics.message_sent("sonos_played")
+                except Exception as sonos_err:
+                    logger.error(f"Sonos playback failed: {sonos_err}")
+                    await session.websocket.send_json({"type": "error", "message": f"Sonos playback failed: {str(sonos_err)}"})
+                    metrics.message_sent("error")
+            
+            # Send completion markers
+            await session.websocket.send_json({
+                "type": "audio_end",
+                "session_id": session.session_id,
+            })
+            metrics.message_sent("audio_end")
+            
+            await session.websocket.send_json({
+                "type": "response_text",
+                "session_id": session.session_id,
+                "text": full_response,
+                "timing": {"stt_ms": stt_ms, "llm_ms": llm_ms, "sentences": sentence_count},
+            })
+            metrics.message_sent("response_text")
+            
+            # Track conversation
+            if full_response:
+                conversation.add_turn(conv_session_key, transcript, full_response)
+            
+        except Exception as e:
+            logger.error(f"Voice processing error: {e}")
+            import traceback
+            traceback.print_exc()
+            await session.websocket.send_json({"type": "error", "message": f"Voice processing failed: {str(e)}"})
             metrics.message_sent("error")
             
     elif message_type == "stream_tts":
@@ -740,12 +777,25 @@ async def voice_interaction(
         if not transcript:
             raise HTTPException(status_code=400, detail="No transcript generated")
         
-        # Step 2: OpenClaw LLM (via hooks + transcript polling)
+        # Step 2: OpenClaw LLM (via OpenResponses API — direct, no polling)
         start = time.time()
-        if not hooks_token:
-            raise HTTPException(status_code=500, detail="OpenClaw hooks token not configured")
         
-        llm_response, llm_usage = await call_openclaw(transcript, model=llm_model)
+        # Build instructions with conversation context
+        voice_prefix = (
+            "[Voice conversation from Chris via Omni Vox. "
+            "Respond naturally and concisely — this will be spoken aloud via TTS. "
+            "Do NOT use any tools. Do NOT echo back what Chris said. Just respond directly.]"
+        )
+        conv_session_key = "voice"
+        history_ctx = conversation.format_context(conv_session_key)
+        llm_instructions = voice_prefix + (f"\n\n{history_ctx}" if history_ctx else "")
+        
+        llm_response, llm_usage = await openclaw_streaming.call_sync(
+            transcript,
+            instructions=llm_instructions,
+            model=llm_model,
+            user="omni-vox-pwa",
+        )
         timing["llm"] = round(time.time() - start, 2)
         
         # Clean up response for TTS (strip OpenClaw markup)
